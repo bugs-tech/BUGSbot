@@ -138,6 +138,16 @@ The menu shows all commands grouped in categories with stylish formatting and an
 * Ensure `menu.jpg` exists in the `media/` folder or the bot will send text instead.
 
 ---
+---
+
+## 📞 Contact
+**Author:** BUGS-BOT Dev
+**WhatsApp:** [+237653871607](https://wa.me/237653871607)
+
+---
+
+## 📄 License
+MIT License
 
 ## 🙏 Credits
 
