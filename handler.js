@@ -12,6 +12,9 @@ dotenv.config();
 
 const commands = new Map();
 
+// Global owner tracking
+export const dynamicOwners = new Set(settings.botOwnerNumbers);
+
 // 📁 Dynamically load all command modules from ./commands folder
 const commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
 for (const file of commandFiles) {
@@ -25,9 +28,7 @@ for (const file of commandFiles) {
 export async function handleCommand(sock, msg) {
     const prefix = settings.prefix || '.';
 
-    if (msg.key.remoteJid === 'status@broadcast') {
-        return;
-    }
+    if (msg.key.remoteJid === 'status@broadcast') return;
 
     const fromMe = msg.key.fromMe;
     const isGroup = msg.key.remoteJid.endsWith('@g.us');
@@ -43,9 +44,7 @@ export async function handleCommand(sock, msg) {
     else if (msg.message) text = '[Non-text message received]';
     else text = '[Empty message]';
 
-    if (fromMe && !settings.allowSelfCommands && text.startsWith(prefix)) {
-        return;
-    }
+    if (fromMe && !settings.allowSelfCommands && text.startsWith(prefix)) return;
 
     const senderName = msg.pushName || msg.key.participant || msg.key.remoteJid || 'Unknown';
     let groupName = '';
@@ -79,20 +78,33 @@ export async function handleCommand(sock, msg) {
 
     const replyJid = isGroup ? msg.key.remoteJid : senderJid;
 
-    const senderNumber = senderJid.replace(/[@:].*/g, '');
+    // 🔁 Resolve real JID if using 'lid' format
+    let resolvedJid = senderJid;
+    try {
+        const resolved = await sock.onWhatsApp(senderJid);
+        if (resolved?.[0]?.jid) {
+            resolvedJid = resolved[0].jid;
+            console.log('🔄 Resolved lid to:', resolvedJid);
+        }
+    } catch (err) {
+        console.warn('⚠️ Could not resolve JID:', err);
+    }
 
-    // 🐞 Debug logs to verify ownership detection
-    console.log('🔎 senderJid:', senderJid);
-    console.log('🔢 Extracted senderNumber:', senderNumber);
-    console.log('👑 Configured botOwnerNumbers:', settings.botOwnerNumbers);
-
-    // 🔐 Normalize function for flexible match
     const normalize = num => num.replace(/\D/g, '').replace(/^0+/, '');
+    const normalizedSender = normalize(resolvedJid.split('@')[0]);
 
-    const isBotOwner = settings.botOwnerNumbers.some(owner =>
-        normalize(senderNumber).endsWith(normalize(owner))
-    );
+    const isBotOwner = [...dynamicOwners].some(owner => {
+        const normOwner = normalize(owner.split('@')[0] || owner);
+        return normalizedSender.endsWith(normOwner);
+    });
+
     console.log(`✅ isBotOwner: ${isBotOwner}`);
+    console.log('👑 Current dynamicOwners:', [...dynamicOwners]);
+
+    if (fromMe && !dynamicOwners.has(resolvedJid)) {
+        dynamicOwners.add(resolvedJid);
+        console.log(`🆕 Added ${resolvedJid} as a dynamic owner.`);
+    }
 
     const sessionPath = path.join('sessions', 'cred.js');
     if (!fs.existsSync(sessionPath)) {
@@ -109,7 +121,7 @@ export async function handleCommand(sock, msg) {
         if (Array.isArray(banned) && banned.includes(userJid)) return;
     }
 
-    console.log(chalk.cyan(`📥 ${commandName} called by ${senderName} (${senderNumber}) on ${os.hostname()}`));
+    console.log(chalk.cyan(`📥 ${commandName} called by ${senderName} (${normalizedSender}) on ${os.hostname()}`));
 
     if (isAutoTypingEnabled()) {
         await sock.sendPresenceUpdate('composing', msg.key.remoteJid);
@@ -124,7 +136,7 @@ export async function handleCommand(sock, msg) {
     try {
         await command.execute(sock, msg, args, {
             senderJid,
-            senderNumber,
+            senderNumber: normalizedSender,
             isGroup,
             isBotOwner,
             replyJid,
