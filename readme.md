@@ -38,7 +38,7 @@ A powerful WhatsApp multi-function chatbot built . It includes command categorie
 1. **Clone this bot:**
 
 ```bash
-git clone https://github.com/morel22/bugsbot.git
+ https://github.com/morel22/BUGSbot.git
 cd bugsbot
 ```
 
@@ -64,6 +64,52 @@ export default {
 ```bash
 node index.js
 ```
+
+---
+---
+
+## 🚀 Deployment
+
+### 🟣 Deploy to Render (Free Hosting)
+
+#### Prerequisites
+- Fork the repo
+- Create an account on [https://render.com](https://render.com)
+
+#### Steps
+1. Click **"New Web Service"** in Render dashboard
+2. Connect your GitHub and select your BUGS-BOT fork
+3. Use the following settings:
+    - **Environment:** Node
+    - **Start Command:** `node index.js`
+    - **Build Command:** `npm install`
+4. Add these environment variables:
+    - `BOT_PREFIX`: your command prefix (e.g., `.`)
+    - `OPENAI_API_KEY`: your OpenAI key
+    - `BOT_OWNER_NUMBERS`: comma-separated owner numbers (no +)
+
+Once deployed, your bot will start and scan the QR code via logs.
+
+---
+
+### 📱 Deploy on Android (Termux)
+
+#### Prerequisites
+- Android phone
+- Install [Termux](https://f-droid.org/packages/com.termux/)
+
+#### Steps
+```bash
+pkg update && pkg upgrade
+pkg install git nodejs ffmpeg
+
+git clone https://github.com/morel22/BUGSbot.git
+cd BUGS-BOT
+npm install
+
+node index.js
+```
+Scan the QR from your WhatsApp to activate.
 
 ---
 
