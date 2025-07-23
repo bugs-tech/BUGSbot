@@ -1,0 +1,101 @@
+// commands/menu.js
+
+import os from 'os';
+import { execSync } from 'child_process';
+import fs from 'fs';
+import settings from '../settings.js';
+
+const botName = '🔥 BUGS-BOT 🔥'; // 🔁 Change to your bot name
+const imagePath = './media/menu.jpg'; // 🔁 Your bot image (must exist!)
+
+// Commands grouped by category
+const ownerCommands = [
+   'autolikestatus','autoreact','autotyping',
+   'shutdown', 'restart', 'mode', 'clearall', 
+  'autoread', 'autotyping','spam'
+];
+
+const groupCommands = [
+  'promote', 'demote', 'kick', 'mute', 'antilink', 'groupelock',
+  'setwelcome', 'tagall','ban','listonline','welcome','unmute'
+];
+
+const generalCommands = ['ping', 'menu','echo','about','joke','roll','owner'];
+const aiCommands = ['ai', 'ask','chat','define','img','translate'];
+
+// RAM usage info
+function getRamUsage() {
+  const total = os.totalmem() / 1024 / 1024 / 1024;
+  const free = os.freemem() / 1024 / 1024 / 1024;
+  const used = total - free;
+  return `${used.toFixed(2)} GB/${total.toFixed(2)} GB`;
+}
+
+// Speed test
+function getSpeedMs() {
+  const start = Date.now();
+  execSync('node -v');
+  const end = Date.now();
+  return ((end - start) / 1000).toFixed(4) + 's';
+}
+
+export const name = 'menu';
+export const description = 'Show all commands grouped by category with style and image';
+export const category = 'General';
+
+export async function execute(sock, msg, args) {
+  // Always reply in the same chat (group or private)
+  const chatId = msg.key.remoteJid;
+  const pushName = msg.pushName || 'User';
+
+  const prefix = settings.prefix || '.';
+  const version = settings.version || '1.0.0';
+
+  const ram = getRamUsage();
+  const speed = getSpeedMs();
+
+  // Build sections for each command category
+  const ownerCmdsText = ownerCommands.map(cmd => `│★ ${cmd}`).join('\n');
+  const groupCmdsText = groupCommands.map(cmd => `│★ ${cmd}`).join('\n');
+  const aiCmdsText = aiCommands.map(cmd => `│★ ${cmd}`).join('\n');
+  const generalCmdsText = generalCommands.map(cmd => `│★ ${cmd}`).join('\n');
+
+  const totalCommands = ownerCommands.length + groupCommands.length + generalCommands.length + aiCommands.length;
+
+  const menuText = `
+━━━━━《 ${botName} MENU 》━━━━━
+┃★╭──────────────
+┃★┃• ᴜꜱᴇʀ : ${pushName}
+┃★┃• ᴍᴏᴅᴇ : Public
+┃★┃• ᴘʀᴇғɪx : [ ${prefix} ]
+┃★┃• ᴄᴏᴍᴍᴀɴᴅꜱ : ${totalCommands}
+┃★┃• ᴠᴇʀꜱɪᴏɴ : ${version}
+┃★┃• ʀᴀᴍ : ${ram}
+┃★┃• sᴘᴇᴇᴅ : ${speed}
+┃★╰──────────────
+╰━━━━━━━━━━━━━━━━━━┈⊷
+
+┏━━━━━━━━━━━━━━━▣
+┣━━❍「 OWNER 」❍
+${ownerCmdsText}
+
+┣━━❍「 GROUP 」❍
+${groupCmdsText}
+
+
+┣━━❍「 GENERAL 」❍
+${generalCmdsText}
+
+╰━━━━━━━━━━━━━━━━━━━━━━━▣
+`.trim();
+
+  // Send image menu or fallback to plain text
+  if (fs.existsSync(imagePath)) {
+    await sock.sendMessage(chatId, {
+      image: fs.readFileSync(imagePath),
+      caption: menuText
+    });
+  } else {
+    await sock.sendMessage(chatId, { text: menuText });
+  }
+}
