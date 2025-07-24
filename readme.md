@@ -1,172 +1,145 @@
+# 🔥 BUGS-BOT 🔥
 
-
-# 🐞 Bugs_Bot-MD 
-
-Welcome to **Bugs_Bot-MD**, a powerful WhatsApp bot built with Node.js and [Baileys]. This bot includes features such as media commands, game commands, auto-replies, and admin-only tools like group broadcast and autolike.
+A powerful WhatsApp multi-function chatbot built . It includes command categories like AI chat (still under developement ), group management, and owner utilities – perfect for automation and entertainment.
 
 ---
 
-## 📦 Features
+## 🚀 Features
 
-- ✅ Command system with cooldown
-- 🔁 Autolike, Autotyping, AutoviewStatus (owner-only)
-- 🎮 Games: Hangman, RPS, Word Scramble, Tic Tac Toe
-- 📥 YouTube & media downloaders
-- 📸 Image tools: Blur, Rotate, ToImage, RemoveBG (API)
-- 📡 Broadcast to groups (admin-only)
-- 🔐 Owner-only features with dynamic detection
-- 🎨 Customizable with `.env`
+* 🌐 **AI-Powered Commands**: Use OpenAI for intelligent chat, translations, image generation, and definitions.
+* 🛠 **Group Management**: Tools like `kick`, `tagall`, `setwelcome`, `ban`, and more.
+* 👑 **Owner Utilities**: Remote bot control (`shutdown`, `restart`, `autobio`, etc).
+* 🎮 **Fun and General**: Commands like `joke`, `roll`, `ping`, and styled `menu`.
+* 🧠 **Optimized Performance**: Displays bot speed, RAM usage, and system stats in real-time.
+
+---
+
+## 📂 Folder Structure
+
+```
+.
+├── commands/
+│   ├── menu.js
+│   ├── owner.js
+│   ├── spam.js
+│   └── ...
+├── media/
+│   └── menu.jpg
+├── settings.js
+├── index.js
+├── handler.js
+└── README.md
+```
 
 ---
 
 ## ⚙️ Setup Instructions
 
-### 🔧 Step 1: Clone the repository
+1. **Clone this bot:**
 
 ```bash
-git clone https://github.com/yourusername/bugs_bot-md
-cd bugs_bot-md
+ https://github.com/morel22/BUGSbot.git
+cd bugsbot
+```
 
-📱 Step 2: Install Dependencies
+2. **Install dependencies:**
 
+```bash
 npm install
+```
 
-📋 Step 3: Configure Environment Variables
+3. **Edit your `settings.js`:**
 
-Create a .env file in the root directory:
+```js
+export default {
+  prefix: '.',
+  version: '1.0.0',
+  botOwnerNumbers: ['1234567890'], // Your WhatsApp number
+  openAiKey: 'sk-xxxxxx', // Your OpenAI key (optional)
+};
+```
 
-# .env file
+4. **Run the bot:**
 
-BOT_PREFIX=.
-BOT_NAME=Bugs_Bot
-BOT_VERSION=1.0.0
-WELCOME_MESSAGE=👋 Welcome to Bugs_Bot-MD! Type .menu to begin.
-
-# Owner WhatsApp number(s), comma-separated (you can add your ID from .whoami command)
-BOT_OWNER_NUMBERS=234XXXXXXXXXX,237XXXXXXXXXX
-
-# Enable/disable features
-ALLOW_PRIVATE_COMMANDS=true
-ALLOW_SELF_COMMANDS=false
-COMMAND_COOLDOWN=2
-
-# AI config (if you use AI features)
-AI_PROVIDER=openai
-AI_ENDPOINT=https://api.openai.com/v1/
-AI_API_KEY=your_openai_api_key
-
-# Media APIs
-REMOVE_BG_API_KEY=your_removebg_key
-YOUTUBE_API_KEY=your_youtube_data_api_key
-GOOGLE_CLIENT_ID=your_google_client_id
-
-##🧠 Get Your WhatsApp ID
-
-To allow yourself full access to owner-only commands, run this inside WhatsApp:
-
-.whoami
-
-Copy your number (e.g., 237XXXXXXXX) and add it to BOT_OWNER_NUMBERS in .env.
-🧪 Running in Termux
-
-    Install Node.js
-
-pkg update && pkg upgrade
-pkg install nodejs git ffmpeg
-
-    Clone + setup
-
-git clone https://github.com/yourusername/bugs_bot-md
-cd bugs_bot-md
-npm install
-
-    Start the bot
-
+```bash
 node index.js
+```
 
-Scan the QR with WhatsApp.
-☁️ Deploying on Render
+---
+---
 
-    Create a new Node.js service on Render.com.
+## 🚀 Deployment
 
-    Connect your GitHub repo.
+### 🟣 Deploy to Render (Free Hosting)
 
-    Add the following Environment Variables on Render Dashboard:
+#### Prerequisites
+- Fork the repo
+- Create an account on [https://render.com](https://render.com)
 
-        BOT_NAME, BOT_PREFIX, etc.
+#### Steps
+1. Click **"New Web Service"** in Render dashboard
+2. Connect your GitHub and select your BUGS-BOT fork
+3. Use the following settings:
+    - **Environment:** Node
+    - **Start Command:** `node index.js`
+    - **Build Command:** `npm install`
+4. Add these environment variables:
+    - `BOT_PREFIX`: your command prefix (e.g., `.`)
+    - `OPENAI_API_KEY`: your OpenAI key
+    - `BOT_OWNER_NUMBERS`: comma-separated owner numbers (no +)
 
-        REMOVE_BG_API_KEY
-
-        YOUTUBE_API_KEY
-
-        GOOGLE_CLIENT_ID
-
-        etc.
-
-    Use node index.js as your start command.
-
-    Make sure Render can write to a sessions/ folder (or change session path to use environment-safe storage).
-
-##🧩 Available Commands
-
-    .play <song name> — YouTube play and download
-
-    .yta <url> — Download audio
-
-    .ytv <url> — Download video
-
-    .toimg, .blur, .rotate — Image tools
-
-    .hangman, .rps, .scramble, .tictactoe — Fun games
-
-    .autolike on/off, .autoviewstatus on/off — Owner features
-
-    .gcbroadcast <msg> — Admin-only broadcast to groups
-
-    .whoami — Shows your WhatsApp ID
-
-    .menu — Full list
-
-##📁 Folder Structure
-
-├── commands/           # All command modules
-├── lib/                # Utility modules (autotyping, like status, etc.)
-├── sessions/           # Session data for Baileys
-├── handler.js          # Main event dispatcher
-├── settings.js         # Global settings
-├── .env                # Environment variables
-├── index.js            # Entry point
-└── README.md           # You're here!
-
-##🙋 FAQ
-
-    Q: How do I become bot owner?
-    Run .whoami and add your ID to .env under BOT_OWNER_NUMBERS.
-
-    Q: My image commands fail.
-    Ensure ffmpeg is installed and working.
-
-    Q: I get API limit errors.
-    Make sure to use your own API keys (RemoveBG, YouTube, etc.)
-
-    
-
-##📜 License
-
-MIT — Free to use and modify, with attribution.
-## 📞 Contact
-**Author:** BUGS-BOT Dev
-**WhatsApp:** [+237653871607](https://wa.me/237653871607)
+Once deployed, your bot will start and scan the QR code via logs.
 
 ---
 
-## 📄 License
-MIT License
+### 📱 Deploy on Android (Termux)
 
-## 🧠 Credits
+#### Prerequisites
+- Android phone
+- Install [Termux](https://f-droid.org/packages/com.termux/)
+
+#### Steps
+```bash
+pkg update && pkg upgrade
+pkg install git nodejs ffmpeg
+
+git clone https://github.com/morel22/BUGSbot.git
+cd BUGS-BOT
+npm install
+
+node index.js
+```
+Scan the QR from your WhatsApp to activate.
+
+---
+
+## 🔐 Permissions
+
+| Command   | Who Can Use    |
+| --------- | -------------- |
+| `.menu`   | Everyone       |
+| `.owner`  | Everyone       |
+| `.spam`   | **Owner Only** |
+| `.tagall` | Admins         |
+| `.ask`    | Everyone (AI)  |
+
+---
+
+## 🖼️ Menu Preview
+
+The menu shows all commands grouped in categories with stylish formatting and an optional image banner (`./media/menu.jpg`).
+
+---
+
+## 📌 Notes
+
+* This bot uses [Baileys] for WhatsApp multi-device support.
+* Make sure to create your session and scan your QR code before using.
+* Ensure `menu.jpg` exists in the `media/` folder or the bot will send text instead.
+
+---
+
+## 🙏 Credits
 
 * Inspired by KnightBot, EliteProBot, and OpenAI integrations.
 * Developed with ❤️ by \[Ngoulla Morel].
-Baileys by @adiwajshing
-
-    Various open APIs and contributors
