@@ -18,5 +18,6 @@ export default {
     provider: process.env.AI_PROVIDER || 'openai',
     endpoint: process.env.AI_ENDPOINT || 'https://api.openai.com/v1/',
     apiKey: process.env.AI_API_KEY || '',
-  }
+  },
+  removeBgApiKey: process.env.REMOVE_BG_API_KEY || '', // <-- Added Remove.bg API key support
 };
