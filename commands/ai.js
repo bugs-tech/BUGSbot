@@ -1,27 +1,18 @@
-// commands/ai.js
-
-import fetch from 'node-fetch';
-import settings from '../settings.js';
-
-export const name = 'ai';
-
 export async function execute(sock, msg, args, context) {
-    const { senderJid } = context;
+    const chatId = msg.key.remoteJid;
     const prompt = args.join(' ');
 
     if (!prompt) {
-        await sock.sendMessage(senderJid, {
+        return await sock.sendMessage(chatId, {
             text: '❗ *Usage:* .ai <your prompt>'
         });
-        return;
     }
 
     const openaiKey = settings.openaiApiKey;
     if (!openaiKey) {
-        await sock.sendMessage(senderJid, {
+        return await sock.sendMessage(chatId, {
             text: '⚠️ OpenAI API key not configured in settings.'
         });
-        return;
     }
 
     try {
@@ -43,14 +34,14 @@ export async function execute(sock, msg, args, context) {
         const data = await res.json();
         const reply = data.choices?.[0]?.message?.content;
 
-        await sock.sendMessage(senderJid, {
+        await sock.sendMessage(chatId, {
             text: reply || '⚠️ AI did not return a response.'
         });
 
     } catch (err) {
-        console.error('❌ AI command error:', err);
-        await sock.sendMessage(senderJid, {
-            text: '❌ Failed to fetch AI response. Please try again later.'
+        console.error('❌ AI request failed:', err);
+        await sock.sendMessage(chatId, {
+            text: `❌ AI request failed: ${err.message}`
         });
     }
 }

@@ -5,8 +5,11 @@ import path from 'path';
 import os from 'os';
 import chalk from 'chalk';
 import settings from './settings.js';
+import { isAutoLikeEnabled } from './commands/autolike.js';  // Import autolike toggle state
 import { isAutoLikeStatusEnabled } from './lib/autolikestatus.js';
 import { isAutoTypingEnabled } from './lib/autotyping.js';
+import { isAutoViewStatusEnabled } from './commands/autoviewstatus.js'; // Import autoviewstatus toggle
+import { isGroupBroadcastEnabled } from './commands/broadcastgroup.js'; // Import group broadcast toggle
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -33,6 +36,7 @@ export async function handleCommand(sock, msg) {
     const fromMe = msg.key.fromMe;
     const isGroup = msg.key.remoteJid.endsWith('@g.us');
 
+    // Extract message text or fallback
     let text = '';
     if (msg.message?.conversation) text = msg.message.conversation;
     else if (msg.message?.extendedTextMessage?.text) text = msg.message.extendedTextMessage.text;
@@ -43,6 +47,24 @@ export async function handleCommand(sock, msg) {
     else if (msg.message?.templateButtonReplyMessage?.selectedId) text = msg.message.templateButtonReplyMessage.selectedId;
     else if (msg.message) text = '[Non-text message received]';
     else text = '[Empty message]';
+
+    // === New auto-like reaction on messages (excluding statuses) ===
+    try {
+        if (isAutoLikeEnabled() && !fromMe) {
+            const messageTypesToReact = ['conversation', 'imageMessage', 'stickerMessage', 'videoMessage', 'documentMessage'];
+            const msgType = Object.keys(msg.message || {})[0];
+            if (messageTypesToReact.includes(msgType)) {
+                await sock.sendMessage(msg.key.remoteJid, {
+                    react: {
+                        text: '❤️',
+                        key: msg.key
+                    }
+                });
+            }
+        }
+    } catch (err) {
+        console.error('❌ Auto-like reaction failed:', err);
+    }
 
     if (fromMe && !settings.allowSelfCommands && text.startsWith(prefix)) return;
 
@@ -78,7 +100,6 @@ export async function handleCommand(sock, msg) {
 
     const replyJid = isGroup ? msg.key.remoteJid : senderJid;
 
-    // 🔁 Resolve real JID if using 'lid' format
     let resolvedJid = senderJid;
     try {
         const resolved = await sock.onWhatsApp(senderJid);
@@ -134,6 +155,14 @@ export async function handleCommand(sock, msg) {
     }
 
     try {
+        if (commandName === 'gcbroadcast') {
+            const metadata = await sock.groupMetadata(msg.key.remoteJid);
+            const senderIsAdmin = metadata.participants?.find(p => p.id === resolvedJid && (p.admin === 'admin' || p.admin === 'superadmin'));
+            if (!senderIsAdmin) {
+                return sendReply(replyJid, '❌ *Only group admins can use this command.*');
+            }
+        }
+
         await command.execute(sock, msg, args, {
             senderJid,
             senderNumber: normalizedSender,
@@ -151,8 +180,9 @@ export async function handleCommand(sock, msg) {
     }
 }
 
+// Auto-react to statuses (already present)
 export async function handleStatus(sock, msg) {
-    if (msg.key.remoteJid === 'status@broadcast' && isAutoLikeStatusEnabled()) {
+    if (msg.key.remoteJid === 'status@broadcast' && (isAutoLikeStatusEnabled() || isAutoViewStatusEnabled())) {
         try {
             await sock.sendMessage('status@broadcast', {
                 react: {

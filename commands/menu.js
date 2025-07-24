@@ -14,7 +14,7 @@ const ownerCommands = [
 ];
 
 const groupCommands = [
-  'promote', 'demote', 'kick', 'mute', 'antilink', 'groupelock','gcbroadcast',
+  'promote', 'demote', 'kick', 'mute', 'antilink', 'grouplock','gcbroadcast',
   'setwelcome', 'tagall','ban','listonline','welcome','unmute'
 ];
 
@@ -80,7 +80,7 @@ export async function execute(sock, msg, args) {
   const totalCommands = ownerCommands.length + groupCommands.length + gameCommands.length+ generalCommands.length + downloadCommands.length + imageCommands.length + aiCommands.length;
 
   const menuText = `
-━━━━━《 ${botName} MENU 》━━━━━
+━━━━━《 ${botName} \n MENU 》━━━━━
 ┃★╭──────────────
 ┃★┃• ᴜꜱᴇʀ : ${pushName}
 ┃★┃• ᴍᴏᴅᴇ : Public
@@ -93,25 +93,25 @@ export async function execute(sock, msg, args) {
 ╰━━━━━━━━━━━━━━━━━━┈⊷
 
 ┏━━━━━━━━━━━━━━━▣
-┣━━❍「 OWNER 」❍
+┣━━❍「 *OWNER* 」❍
 ${ownerCmdsText}
 
-┣━━❍「 GROUP 」❍
+┣━━❍「 *GROUP* 」❍
 ${groupCmdsText}
 
-┣━━❍「 AI 」❍
+┣━━❍「 *AI* 」❍
 ${aiCmdsText}
 
-┣━━❍「 IMAGE 」❍
+┣━━❍「 *IMAGE* 」❍
 ${imageCmdsText}
 
-┣━━❍「 DOWNLOAD 」❍
+┣━━❍「 *DOWNLOAD* 」❍
 ${downloadCmdsText}
 
-┣━━❍「 GENERAL 」❍
-${gameCmdsTextCmdsText}
+┣━━❍「 *GAMES* 」❍
+${gameCmdsText}
 
-┣━━❍「 GENERAL 」❍
+┣━━❍「 *GENERAL* 」❍
 ${generalCmdsText}
 
 ╰━━━━━━━━━━━━━━━━━━━━━━━▣

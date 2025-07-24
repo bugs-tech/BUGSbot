@@ -1,5 +1,3 @@
-// commands/tagall.js
-
 const botName = '🔥 BUGS-BOT 🔥';
 
 export const name = 'tagall';
@@ -15,7 +13,7 @@ export async function execute(sock, msg, args, context) {
   }
 
   try {
-    // Fetch group metadata to get participants
+    // Get group metadata
     const metadata = await sock.groupMetadata(replyJid);
     const participants = metadata.participants;
 
@@ -23,13 +21,11 @@ export async function execute(sock, msg, args, context) {
       return await sendReply(replyJid, '⚠️ No members found in this group.');
     }
 
-    // Map participant names with formatting
-    const taggedUsersText = participants
-      .map((p, i) => {
-        const name = p?.name || p?.notify || p?.id?.split('@')[0];
-        return `*${i + 1}.* ${name}`;
-      })
-      .join('\n');
+    const mentions = participants.map(p => p.id);
+    const taggedText = participants.map((p, i) => {
+      const username = p.id.split('@')[0]; // extract number part
+      return `*${i + 1}.* @${username}`;
+    }).join('\n');
 
     const tagAllMessage = `
 ╔══════════════════════╗
@@ -38,14 +34,13 @@ export async function execute(sock, msg, args, context) {
 ╠══════════════════════╣
 ║ Hello everyone! *${senderName}* just tagged all members.
 ║
-${taggedUsersText}
+${taggedText}
 ╚══════════════════════╝
 `.trim();
 
-    // Send with mentions
     await sock.sendMessage(replyJid, {
       text: tagAllMessage,
-      mentions: participants.map(p => p.id)
+      mentions
     });
 
   } catch (error) {

@@ -1,20 +1,16 @@
 // commands/rotate.js
+
 import path from 'path';
 import fs from 'fs';
 import sharp from 'sharp';
+import { downloadImage } from '../lib/downloadImage.js';
 
 export const name = 'rotate';
-export const description = 'Rotate an image by degrees (default 90)';
+export const description = 'Rotate an image 90 degrees';
 export const category = 'Image';
 
 export async function execute(sock, msg, args, { sendReply }) {
   const chatId = msg.key.remoteJid;
-  const degrees = args.length ? parseInt(args[0], 10) : 90;
-
-  if (isNaN(degrees)) {
-    return sendReply(chatId, '❌ Invalid degrees value. Please provide a number.\nExample: `.rotate 180`');
-  }
-
   const media = msg.message?.imageMessage || msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
 
   if (!media) {
@@ -22,14 +18,18 @@ export async function execute(sock, msg, args, { sendReply }) {
   }
 
   try {
-    const buffer = await sock.downloadMediaMessage(msg);
-    const outputPath = path.join('temp', `rotate_${Date.now()}.jpg`);
+    const buffer = await downloadImage(msg);
 
+    const outputPath = path.join('temp', `rotate_${Date.now()}.jpg`);
     await sharp(buffer)
-      .rotate(degrees)
+      .rotate(90)
+      .jpeg()
       .toFile(outputPath);
 
-    await sock.sendMessage(chatId, { image: fs.readFileSync(outputPath) });
+    await sock.sendMessage(chatId, {
+      image: fs.readFileSync(outputPath),
+      caption: '✅ Image rotated 90 degrees.'
+    });
 
     fs.unlinkSync(outputPath);
   } catch (error) {

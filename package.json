@@ -103,7 +103,8 @@
     "which": "^2.0.2",
     "word-wrap": "^1.2.5",
     "ws": "^8.18.3",
-    "yocto-queue": "^0.1.0"
+    "yocto-queue": "^0.1.0",
+    "ytdl-core": "^4.11.5"
   },
   "scripts": {
     "start": "node index.js",

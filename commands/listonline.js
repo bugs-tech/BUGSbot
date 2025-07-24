@@ -1,35 +1,35 @@
 // commands/listonline.js
+
 export const name = 'listonline';
-export const description = 'List currently online members (admins only)';
+export const description = 'List online members in the group';
+export const usage = '.listonline';
 
-export async function execute(sock, msg) {
-    const groupId = msg.key.remoteJid;
-    const isGroup = groupId.endsWith('@g.us');
-    if (!isGroup) {
-        await sock.sendMessage(groupId, { text: '❌ This command is for group use only.' });
-        return;
+export async function execute(sock, msg, args, { isGroup, replyJid, sendReply, getName }) {
+  if (!isGroup) return sendReply(replyJid, '❌ This command can only be used in groups.');
+
+  const groupId = msg.key.remoteJid;
+  const metadata = await sock.groupMetadata(groupId);
+  const participants = metadata.participants;
+
+  const onlineMembers = [];
+
+  for (const p of participants) {
+    try {
+      const presence = await sock.presenceSubscribe(p.id);
+      if (presence?.lastSeen || presence?.isOnline) {
+        const name = await getName(p.id);
+        onlineMembers.push(`- @${name || p.id.split('@')[0]}`);
+      }
+    } catch (e) {
+      console.warn(`⚠️ Could not check presence of ${p.id}`);
     }
+  }
 
-    const metadata = await sock.groupMetadata(groupId);
-    const sender = msg.key.participant || msg.participant;
-    const admins = metadata.participants.filter(p => p.admin).map(p => p.id);
+  if (onlineMembers.length === 0) {
+    return sendReply(replyJid, '📭 No online members found.');
+  }
 
-    if (!admins.includes(sender)) {
-        await sock.sendMessage(groupId, { text: '🚫 Only group admins can use this command.' });
-        return;
-    }
-
-    const presence = sock.presence[groupId] || {};
-    const onlineMembers = Object.entries(presence)
-        .filter(([_, val]) => val?.lastKnownPresence === 'available')
-        .map(([jid]) => `🟢 @${jid.split('@')[0]}`);
-
-    if (onlineMembers.length === 0) {
-        await sock.sendMessage(groupId, { text: '🕸 No members are currently online.' });
-    } else {
-        await sock.sendMessage(groupId, {
-            text: `📶 *Online Members:*\n${onlineMembers.join('\n')}`,
-            mentions: onlineMembers.map(j => j.replace('🟢 @', '') + '@s.whatsapp.net')
-        });
-    }
+  await sendReply(replyJid, `🟢 *Online Members:*\n${onlineMembers.join('\n')}`, {
+    mentions: participants.map(p => p.id),
+  });
 }

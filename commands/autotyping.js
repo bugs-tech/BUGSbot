@@ -1,4 +1,3 @@
-// commands/autotyping.js
 import { setAutoTyping, isAutoTypingEnabled } from '../lib/autotyping.js';
 
 export const name = 'autotyping';
@@ -21,7 +20,17 @@ export async function execute(sock, msg, args, context) {
         return;
     }
 
-    setAutoTyping(choice === 'on');
+    const enable = choice === 'on';
+    setAutoTyping(enable);
+
+    // Show typing status once when turned on
+    if (enable) {
+        await sock.sendPresenceUpdate('composing', senderJid);
+        setTimeout(() => {
+            sock.sendPresenceUpdate('paused', senderJid);
+        }, 2000); // stops typing after 2 seconds
+    }
+
     await sock.sendMessage(senderJid, {
         text: `✅ Autotyping is now *${choice.toUpperCase()}*.`
     });

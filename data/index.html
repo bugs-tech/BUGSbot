@@ -2,70 +2,216 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>🔥 BUGS-BOT 🔥</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BUGS-BOT | WhatsApp AI Assistant</title>
+
+  <!-- Animate.css -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+
+  <!-- Font Awesome (for icons) -->
+  <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+
+  <!-- Custom Styles -->
   <style>
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    * {
+      box-sizing: border-box;
+    }
+
+    body, html {
       margin: 0;
-      background: #0f0f0f;
-      color: #ffffff;
+      padding: 0;
+      height: 100%;
+      font-family: 'Segoe UI', sans-serif;
+      color: #fff;
+      overflow: hidden;
+    }
+
+    #particles-js {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(to right, #0f2027, #203a43, #2c5364);
+      z-index: -1;
+    }
+
+    .container {
       display: flex;
       flex-direction: column;
-      align-items: center;
       justify-content: center;
-      height: 100vh;
+      align-items: center;
+      height: 100%;
+      padding: 20px;
       text-align: center;
-      background: linear-gradient(to right, #111111, #1f1f1f);
+      z-index: 1;
+      position: relative;
     }
 
     h1 {
-      color: #ff4500;
-      font-size: 3rem;
-      margin-bottom: 0.5rem;
-    }
-
-    h2 {
-      color: #00ffcc;
-      font-size: 1.5rem;
-      margin-bottom: 2rem;
+      font-size: 3.5rem;
+      margin-bottom: 10px;
     }
 
     p {
+      font-size: 1.2rem;
+      max-width: 700px;
+      margin: 0 auto 30px;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 15px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .btn {
+      background-color: #00c853;
+      color: white;
+      padding: 15px 30px;
       font-size: 1rem;
-      color: #dddddd;
-      margin: 0.5rem 0;
-    }
-
-    .contact {
-      margin-top: 2rem;
-      padding: 1rem 2rem;
-      background-color: #202020;
-      border-radius: 8px;
-      border: 1px solid #333;
-      box-shadow: 0 0 10px rgba(255, 69, 0, 0.5);
-    }
-
-    .contact a {
-      color: #00ffcc;
+      border: none;
+      border-radius: 30px;
+      cursor: pointer;
       text-decoration: none;
-      font-weight: bold;
+      transition: background-color 0.3s ease;
     }
 
-    .contact a:hover {
-      text-decoration: underline;
+    .btn.github {
+      background-color: #333;
+    }
+
+    .btn:hover {
+      opacity: 0.9;
+    }
+
+    .features {
+      margin-top: 40px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 25px;
+    }
+
+    .feature {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 20px;
+      border-radius: 15px;
+      width: 260px;
+      text-align: left;
+    }
+
+    .feature i {
+      font-size: 1.5rem;
+      margin-bottom: 10px;
+      color: #00e676;
+    }
+
+    .footer {
+      position: absolute;
+      bottom: 10px;
+      text-align: center;
+      width: 100%;
+      font-size: 0.85rem;
+      color: #ccc;
+    }
+
+    @media (max-width: 768px) {
+      h1 {
+        font-size: 2.5rem;
+      }
+
+      .feature {
+        width: 100%;
+        max-width: 320px;
+      }
     }
   </style>
 </head>
 <body>
-  <h1>🔥 BUGS-BOT 🔥</h1>
-  <h2>The Ultimate WhatsApp AI Assistant</h2>
-  <p>Interact with powerful AI features directly from your WhatsApp.</p>
-  <p>Features include group management, auto-reply, image generation, translation, and more!</p>
+  <div id="particles-js"></div>
 
-  <div class="contact">
-    <p><strong>Contact Developer:</strong></p>
-    <p><a href="https://wa.me/237653871607" target="_blank">+237 653 871 607</a></p>
+  <div class="container animate__animated animate__fadeInDown">
+    <h1>🤖 BUGS-BOT</h1>
+    <p class="animate__animated animate__fadeInUp animate__delay-1s">
+      A powerful AI WhatsApp bot. Generate images, tag members, download media, auto-type and much more.
+    </p>
+
+    <div class="btn-group animate__animated animate__fadeInUp animate__delay-2s">
+      <a href="https://wa.me/237653871607" class="btn">🚀 Try on WhatsApp</a>
+      <a href="https://github.com/morel22/BUGSbot.git" class="btn github">🌐 View on GitHub</a>
+    </div>
+
+    <div class="features animate__animated animate__fadeInUp animate__delay-3s">
+      <div class="feature">
+        <i class="fas fa-bolt"></i>
+        <h3>Auto Like & Typing</h3>
+        <p>Simulates typing and reacts to messages with emojis.</p>
+      </div>
+      <div class="feature">
+        <i class="fas fa-tags"></i>
+        <h3>Tag All</h3>
+        <p>Mentions all members in a group with their usernames.</p>
+      </div>
+      <div class="feature">
+        <i class="fas fa-image"></i>
+        <h3>Image AI</h3>
+        <p>Generates images based on your prompts. Fast & API-free!</p>
+      </div>
+      <div class="feature">
+        <i class="fas fa-music"></i>
+        <h3>YouTube Downloader</h3>
+        <p>Downloads audio/video from YouTube with .play, .yta, .ytv.</p>
+      </div>
+    </div>
   </div>
+
+  <div class="footer">
+    &copy; 2025 BUGS-BOT. Made with 💚 by XENDER
+  </div>
+
+  <!-- Particles.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+  <script>
+    particlesJS("particles-js", {
+      "particles": {
+        "number": { "value": 60 },
+        "color": { "value": "#00e676" },
+        "shape": {
+          "type": "circle",
+          "stroke": { "width": 0, "color": "#000000" }
+        },
+        "opacity": {
+          "value": 0.5,
+          "random": true
+        },
+        "size": {
+          "value": 3,
+          "random": true
+        },
+        "line_linked": {
+          "enable": true,
+          "distance": 120,
+          "color": "#00e676",
+          "opacity": 0.4,
+          "width": 1
+        },
+        "move": {
+          "enable": true,
+          "speed": 2
+        }
+      },
+      "interactivity": {
+        "events": {
+          "onhover": { "enable": true, "mode": "grab" }
+        },
+        "modes": {
+          "grab": { "distance": 140, "line_linked": { "opacity": 1 } }
+        }
+      },
+      "retina_detect": true
+    });
+  </script>
 </body>
 </html>

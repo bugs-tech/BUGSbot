@@ -1,6 +1,4 @@
 import ytdl from 'ytdl-core';
-import { sendReply } from '../lib/sendReply.js'; // Make sure this helper exists
-import fetch from 'node-fetch';
 import fs from 'fs';
 import path from 'path';
 
@@ -10,54 +8,63 @@ export const category = 'Downloader';
 export const usage = '.yta <YouTube URL>';
 
 export async function execute(sock, msg, args, context) {
-  const { chat, isGroup, senderName } = context;
+  const { replyJid, sendReply } = context;
   const url = args[0];
 
   if (!url || !ytdl.validateURL(url)) {
-    return sendReply(sock, msg, '❌ Please provide a valid YouTube URL.\nExample: `.yta https://youtu.be/xyz`');
+    return sendReply(replyJid, '❌ Please provide a valid YouTube URL.\nExample: `.yta https://youtu.be/xyz`');
   }
 
   try {
     const info = await ytdl.getInfo(url);
     const title = info.videoDetails.title;
-    const duration = formatDuration(info.videoDetails.lengthSeconds);
+    const duration = formatDuration(parseInt(info.videoDetails.lengthSeconds));
     const author = info.videoDetails.author.name;
     const videoUrl = info.videoDetails.video_url;
     const thumbnail = info.videoDetails.thumbnails?.[info.videoDetails.thumbnails.length - 1]?.url || '';
-    
-    const audioFormat = ytdl.chooseFormat(info.formats, { quality: 'highestaudio' });
-    const fileSizeMB = (audioFormat.contentLength / 1024 / 1024).toFixed(2);
 
-    // Send info card
-    const caption = `
+    const audioFormat = ytdl.chooseFormat(info.formats, { quality: 'highestaudio' });
+    const fileSizeMB = audioFormat.contentLength ? (audioFormat.contentLength / 1024 / 1024).toFixed(2) : 'Unknown';
+
+    // Send info card with thumbnail
+    await sock.sendMessage(replyJid, {
+      image: { url: thumbnail },
+      caption: `
 🎵 *Title:* ${title}
 🕒 *Duration:* ${duration}
 👤 *Channel:* ${author}
 📦 *Size:* ~${fileSizeMB} MB
 🔗 *URL:* ${videoUrl}
-`.trim();
-
-    await sock.sendMessage(chat, {
-      image: { url: thumbnail },
-      caption
+      `.trim()
     });
 
-    // Download and send MP3
-    const tempPath = path.join('./temp', `${Date.now()}_audio.mp3`);
-    const stream = ytdl(url, { filter: 'audioonly' }).pipe(fs.createWriteStream(tempPath));
+    // Download audio to temp file
+    const tempDir = './temp';
+    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+    const tempPath = path.join(tempDir, `${Date.now()}_audio.mp3`);
 
-    stream.on('finish', async () => {
-      await sock.sendMessage(chat, {
-        document: fs.readFileSync(tempPath),
-        mimetype: 'audio/mpeg',
-        fileName: `${title}.mp3`
-      });
-      fs.unlinkSync(tempPath);
+    const writeStream = fs.createWriteStream(tempPath);
+    ytdl(url, { filter: 'audioonly' }).pipe(writeStream);
+
+    // Wait for download to finish
+    await new Promise((resolve, reject) => {
+      writeStream.on('finish', resolve);
+      writeStream.on('error', reject);
     });
+
+    // Send audio file
+    await sock.sendMessage(replyJid, {
+      document: fs.readFileSync(tempPath),
+      mimetype: 'audio/mpeg',
+      fileName: `${title}.mp3`
+    });
+
+    // Cleanup temp file
+    fs.unlinkSync(tempPath);
 
   } catch (err) {
-    console.error('Error in .yta:', err);
-    return sendReply(sock, msg, '⚠️ Failed to process the YouTube link.');
+    console.error('Error in .yta command:', err);
+    return sendReply(replyJid, '⚠️ Failed to process the YouTube link.');
   }
 }
 

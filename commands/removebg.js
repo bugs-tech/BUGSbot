@@ -1,63 +1,51 @@
 // commands/removebg.js
-import axios from 'axios';
+
 import fs from 'fs';
 import path from 'path';
-import settings from '../settings.js';
+import axios from 'axios';
+import { downloadMediaMessage } from '@whiskeysockets/baileys';
 
 export const name = 'removebg';
-export const description = 'Remove background from an image (requires remove.bg API key)';
+export const description = 'Remove background from an image';
 export const category = 'Image';
 
 export async function execute(sock, msg, args, { sendReply }) {
   const chatId = msg.key.remoteJid;
+  const imageMsg =
+    msg.message?.imageMessage ||
+    msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
 
-  // Your Remove.bg API key - recommend to keep it in settings.js or .env instead of hardcoding
-  const apiKey = settings.removeBgApiKey || 'jVJVMhRN1kThMb1br7SLR3sr';
-
-  if (!apiKey) {
-    return sendReply(chatId, '⚠️ remove.bg API key is missing in settings.');
-  }
-
-  // Check if the message contains or quotes an image
-  const media = msg.message?.imageMessage || msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
-  if (!media) {
-    return sendReply(chatId, '❌ Please reply to an image or send an image with the `.removebg` command.');
+  if (!imageMsg) {
+    return sendReply(chatId, '❌ Please reply to or send an image.');
   }
 
   try {
-    // Download image buffer from the message
-    const buffer = await sock.downloadMediaMessage(msg);
+    const buffer = await downloadMediaMessage({ message: { imageMessage: imageMsg } }, 'buffer');
 
-    // Prepare form data for remove.bg API
-    const FormData = (await import('form-data')).default;
+    const apiKey = process.env.REMOVE_BG_KEY || 'your_removebg_api_key';
     const formData = new FormData();
-    formData.append('image_file', buffer, 'image.png');
+    formData.append('image_file', new Blob([buffer]), 'input.jpg');
     formData.append('size', 'auto');
 
-    // Send request to remove.bg
     const response = await axios.post('https://api.remove.bg/v1.0/removebg', formData, {
       headers: {
-        ...formData.getHeaders(),
+        ...formData.getHeaders?.(), // node-fetch/axios compatibility
         'X-Api-Key': apiKey,
       },
       responseType: 'arraybuffer'
     });
 
-    if (response.status !== 200) {
-      return sendReply(chatId, `⚠️ Failed to remove background. Status: ${response.status}`);
-    }
-
-    // Save the result temporarily
-    const outputPath = path.join('temp', `removebg_${Date.now()}.png`);
+    const outputPath = path.join('temp', `no-bg-${Date.now()}.png`);
     fs.writeFileSync(outputPath, response.data);
 
-    // Send the image back to chat
-    await sock.sendMessage(chatId, { image: fs.readFileSync(outputPath) });
+    await sock.sendMessage(chatId, {
+      image: fs.readFileSync(outputPath),
+      caption: '🖼️ Background removed successfully!'
+    });
 
-    // Clean up temp file
     fs.unlinkSync(outputPath);
   } catch (error) {
-    console.error('❌ Error in removebg command:', error);
-    sendReply(chatId, `⚠️ Error removing background: ${error.message || error}`);
+    console.error('❌ Error in removebg command:', error?.response?.data || error);
+    sendReply(chatId, '⚠️ Failed to remove background. Make sure your API key is valid.');
   }
 }
