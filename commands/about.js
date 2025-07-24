@@ -1,22 +1,33 @@
 // commands/about.js
-import os from 'os';
+
+import settings from '../settings.js';
 
 export const name = 'about';
+export const description = 'Show information about BUGS-BOT';
+export const category = 'General';
 
-function formatUptime(seconds) {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = Math.floor(seconds % 60);
-    return `${h}h ${m}m ${s}s`;
-}
+export async function execute(sock, msg) {
+  const chatId = msg.key.remoteJid;
 
-export async function execute(sock, msg, args) {
-    const hostname = os.hostname();
-    const uptime = formatUptime(process.uptime());
+  const caption = `
+┏━━━━━━━🔥 *BUGS-BOT* 🔥━━━━━━━┓
+┃ 🤖 *Name:* BUGS-BOT
+┃ 🧠 *Version:* ${settings.version || '1.0.0'}
+┃ 👑 *Author:* BUGS-BOT Dev
+┃ 🌍 *GitHub:* github.com/morel22/BUGSbot
+┃ 💬 *Prefix:* ${settings.prefix || '.'}
+┃ 📦 *Built With:* Baileys + OpenAI
+┃ 📞 *Contact:* wa.me/237653871607
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
-    const aboutMsg = `🤖 *Bugs_bot*\nHost: ${hostname}\nUptime: ${uptime}\n`;
+✨ *Features:*
+• AI Chat (.chat, .ask, .img)
+• Group Tools (.tagall, .kick, .ban)
+• Owner Tools (.shutdown, .mode, .restart)
+• Image Menu UI + Fast Responses
 
-    await sock.sendMessage(msg.key.remoteJid, {
-        text: aboutMsg
-    }, { quoted: msg });
+📌 Use *${settings.prefix || '.'}menu* to view all commands.
+`;
+
+  await sock.sendMessage(chatId, { text: caption });
 }

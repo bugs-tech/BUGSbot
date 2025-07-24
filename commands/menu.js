@@ -1,5 +1,3 @@
-// commands/menu.js
-
 import os from 'os';
 import { execSync } from 'child_process';
 import fs from 'fs';
@@ -10,17 +8,26 @@ const imagePath = './media/menu.jpg'; // 🔁 Your bot image (must exist!)
 
 // Commands grouped by category
 const ownerCommands = [
-   'autolikestatus','autoreact','autotyping',
-   'shutdown', 'restart', 'mode', 'clearall', 
+   'autolike','autoviewstatus','autolikestatus','autoreact','autotyping','broadcast',
+   'shutdown', 'clearall','restart', 
   'autoread', 'autotyping','spam'
 ];
 
 const groupCommands = [
-  'promote', 'demote', 'kick', 'mute', 'antilink', 'groupelock',
+  'promote', 'demote', 'kick', 'mute', 'antilink', 'groupelock','gcbroadcast',
   'setwelcome', 'tagall','ban','listonline','welcome','unmute'
 ];
 
-const generalCommands = ['ping', 'menu','echo','about','joke','roll','owner'];
+const generalCommands = ['ping', 'menu','echo','about','joke','roll','owner','repo','whoami'];
+
+const gameCommands = ['rps','ttt','ngg','hangman','wordscramble'];
+
+const imageCommands = ['toimg','blur','rotate','sticker',
+  'invert','greyscale','removebg'
+];
+
+const downloadCommands = ['instagram','play','yta','ytv','ytmp3','ytmp4'];
+
 const aiCommands = ['ai', 'ask','chat','define','img','translate'];
 
 // RAM usage info
@@ -37,6 +44,13 @@ function getSpeedMs() {
   execSync('node -v');
   const end = Date.now();
   return ((end - start) / 1000).toFixed(4) + 's';
+}
+
+// Helper function for consistent replies
+async function sendReply(sock, msg, text, extra = {}) {
+  const chatId = msg.key.remoteJid;
+  const footer = '\n\n— *BUGS-BOT support tech*';
+  await sock.sendMessage(chatId, { text: text + footer, ...extra });
 }
 
 export const name = 'menu';
@@ -58,9 +72,12 @@ export async function execute(sock, msg, args) {
   const ownerCmdsText = ownerCommands.map(cmd => `│★ ${cmd}`).join('\n');
   const groupCmdsText = groupCommands.map(cmd => `│★ ${cmd}`).join('\n');
   const aiCmdsText = aiCommands.map(cmd => `│★ ${cmd}`).join('\n');
+  const imageCmdsText = imageCommands.map(cmd => `│★ ${cmd}`).join('\n');
+  const downloadCmdsText = downloadCommands.map(cmd => `│★ ${cmd}`).join('\n');
   const generalCmdsText = generalCommands.map(cmd => `│★ ${cmd}`).join('\n');
+  const gameCmdsText = gameCommands.map(cmd => `│★ ${cmd}`).join('\n');
 
-  const totalCommands = ownerCommands.length + groupCommands.length + generalCommands.length + aiCommands.length;
+  const totalCommands = ownerCommands.length + groupCommands.length + gameCommands.length+ generalCommands.length + downloadCommands.length + imageCommands.length + aiCommands.length;
 
   const menuText = `
 ━━━━━《 ${botName} MENU 》━━━━━
@@ -82,6 +99,17 @@ ${ownerCmdsText}
 ┣━━❍「 GROUP 」❍
 ${groupCmdsText}
 
+┣━━❍「 AI 」❍
+${aiCmdsText}
+
+┣━━❍「 IMAGE 」❍
+${imageCmdsText}
+
+┣━━❍「 DOWNLOAD 」❍
+${downloadCmdsText}
+
+┣━━❍「 GENERAL 」❍
+${gameCmdsTextCmdsText}
 
 ┣━━❍「 GENERAL 」❍
 ${generalCmdsText}
@@ -89,13 +117,17 @@ ${generalCmdsText}
 ╰━━━━━━━━━━━━━━━━━━━━━━━▣
 `.trim();
 
-  // Send image menu or fallback to plain text
-  if (fs.existsSync(imagePath)) {
-    await sock.sendMessage(chatId, {
-      image: fs.readFileSync(imagePath),
-      caption: menuText
-    });
-  } else {
-    await sock.sendMessage(chatId, { text: menuText });
+  try {
+    if (fs.existsSync(imagePath)) {
+      await sock.sendMessage(chatId, {
+        image: fs.readFileSync(imagePath),
+        caption: menuText
+      });
+    } else {
+      await sendReply(sock, msg, menuText);
+    }
+  } catch (err) {
+    console.error('❌ Failed to send menu:', err);
+    await sendReply(sock, msg, '⚠️ Failed to display menu.');
   }
 }

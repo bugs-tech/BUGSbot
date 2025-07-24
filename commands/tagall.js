@@ -7,35 +7,30 @@ export const description = 'Tag all group members with a stylish message';
 export const category = 'Group';
 
 export async function execute(sock, msg, args, context) {
-  const isGroup = msg.key.remoteJid.endsWith('@g.us');
-  const chatId = msg.key.remoteJid;
+  const { isGroup, replyJid, sendReply } = context;
   const senderName = msg.pushName || 'User';
 
   if (!isGroup) {
-    await sock.sendMessage(chatId, {
-      text: '❌ This command can only be used in groups.'
-    });
-    return;
+    return await sendReply(replyJid, '❌ This command can only be used in groups.');
   }
 
   try {
-    // Fetch group metadata to get members
-    const metadata = await sock.groupMetadata(chatId);
+    // Fetch group metadata to get participants
+    const metadata = await sock.groupMetadata(replyJid);
     const participants = metadata.participants;
 
     if (!participants || participants.length === 0) {
-      await sock.sendMessage(chatId, {
-        text: '⚠️ No members found in this group.'
-      });
-      return;
+      return await sendReply(replyJid, '⚠️ No members found in this group.');
     }
 
-    // Format each member's name with stars and bold
+    // Map participant names with formatting
     const taggedUsersText = participants
-      .map(p => `★ *${p.id.includes('@') ? (p.pushName || p.id.split('@')[0]) : p.id}* ★`)
+      .map((p, i) => {
+        const name = p?.name || p?.notify || p?.id?.split('@')[0];
+        return `*${i + 1}.* ${name}`;
+      })
       .join('\n');
 
-    // Construct the full tagall message with box styling and bot name branding
     const tagAllMessage = `
 ╔══════════════════════╗
 ║      *👥 TAG ALL 👥*     ║
@@ -43,21 +38,18 @@ export async function execute(sock, msg, args, context) {
 ╠══════════════════════╣
 ║ Hello everyone! *${senderName}* just tagged all members.
 ║
-║ ➤ Here are the users tagged:
 ${taggedUsersText}
 ╚══════════════════════╝
 `.trim();
 
-    // Send the message with mentions to notify users
-    await sock.sendMessage(chatId, {
+    // Send with mentions
+    await sock.sendMessage(replyJid, {
       text: tagAllMessage,
       mentions: participants.map(p => p.id)
     });
 
   } catch (error) {
     console.error('❌ tagall command failed:', error);
-    await sock.sendMessage(chatId, {
-      text: `⚠️ Failed to tag all members.\nReason: ${error.message || 'Unknown error'}`
-    });
+    await sendReply(replyJid, `⚠️ Failed to tag all members.\nReason: ${error.message || 'Unknown error'}`);
   }
 }

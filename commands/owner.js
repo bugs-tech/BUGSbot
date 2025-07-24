@@ -1,23 +1,29 @@
 // commands/owner.js
 
+import settings from '../settings.js';
+
 export const name = 'owner';
-export const description = 'Show current bot owners';
-export const usage = '.owner';
-export const category = 'Owner';
+export const description = 'Show the owner of BUGS-BOT';
+export const category = 'General';
 
-export async function execute(sock, msg, args, context) {
-    // Get the chat where the message was triggered (group or private)
-    const chatId = msg.key.remoteJid;
+export async function execute(sock, msg) {
+  const chatId = msg.key.remoteJid;
 
-    // Load settings dynamically to get the owner numbers
-    const settings = (await import('../settings.js')).default;
-    const owners = settings.botOwnerNumbers;
+  const ownerNumbers = settings.botOwnerNumbers || [];
+  const contactList = ownerNumbers
+    .map((num, index) => `╰➤ *${index + 1}.* wa.me/${num}`)
+    .join('\n');
 
-    // Format owner numbers into clickable WhatsApp links
-    const formatted = owners.map((num, i) => `*${i + 1}.* https://wa.me/${num}`).join('\n');
+  const caption = `
+┏━━━👑 *BOT OWNER INFO* 👑━━━┓
+┃ 🔥 *Bot Name:* BUGS-BOT
+┃ 📞 *Contact(s):*
+${contactList}
+┃ 🌐 *GitHub:* github.com/morel22/BUGSbot
+┗━━━━━━━━━━━━━━━━━━━━━━┛
 
-    // Send the message in the same place where it was triggered
-    await sock.sendMessage(chatId, {
-        text: `👑 *BOT OWNER(S)* 👑\n\n${formatted}`
-    });
+💡 *Use this command to contact the bot author directly.*
+`;
+
+  await sock.sendMessage(chatId, { text: caption });
 }

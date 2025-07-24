@@ -1,56 +1,40 @@
-import axios from 'axios';
-import settings from '../settings.js';
-
+// commands/chat.js
 export const name = 'chat';
-export const description = 'Chat with AI using OpenAI API key';
-export const category = 'AI';
+export const description = 'Ask anything to the AI';
+export const usage = '.chat [question]';
 
-export async function execute(sock, msg, args, context) {
-  const { senderJid } = context;
+export async function execute(sock, msg, args, { replyJid, sendReply }) {
+    const question = args.join(' ');
+    if (!question) {
+        return sendReply(replyJid, '❓ Please ask a question.\n\nExample: `.chat What is JavaScript?`');
+    }
 
-  if (!args.length) {
-    await sock.sendMessage(senderJid, {
-      text: '🤖 *Usage:* .chat <your message>\n\nExample: .chat How are you today?'
-    });
-    return;
-  }
+    try {
+        const fetch = (await import('node-fetch')).default;
 
-  const prompt = args.join(' ');
-  const apiKey = settings.ai.apiKey;
-  const endpoint = settings.ai.endpoint;
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`, // ← put your key in .env
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: 'gpt-3.5-turbo', // Or gpt-4 if available
+                messages: [{ role: 'user', content: question }],
+                temperature: 0.7
+            })
+        });
 
-  if (!apiKey) {
-    await sock.sendMessage(senderJid, {
-      text: '⚠️ API key is missing. Please update your settings.'
-    });
-    return;
-  }
-
-  try {
-    const response = await axios.post(
-      endpoint,
-      {
-        model: 'gpt-4',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.7
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
+        if (!response.ok) {
+            const error = await response.text();
+            return sendReply(replyJid, `❌ OpenAI API error:\n${error}`);
         }
-      }
-    );
 
-    const reply = response.data.choices[0].message.content.trim();
-
-    await sock.sendMessage(senderJid, {
-      text: `💬 *AI says:*\n${reply}`
-    });
-  } catch (error) {
-    console.error('❌ Chatbot error:', error.message);
-    await sock.sendMessage(senderJid, {
-      text: `⚠️ Chatbot failed: ${error.message || 'Unknown error'}`
-    });
-  }
+        const data = await response.json();
+        const aiReply = data.choices?.[0]?.message?.content || '🤖 No response from AI.';
+        await sendReply(replyJid, `🤖 *AI says:*\n\n${aiReply}`);
+    } catch (err) {
+        console.error('AI Chat error:', err);
+        return sendReply(replyJid, '⚠️ Failed to fetch response from OpenAI.');
+    }
 }
