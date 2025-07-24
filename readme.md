@@ -131,6 +131,19 @@ The menu shows all commands grouped in categories with stylish formatting and an
 
 ---
 
+🙋 FAQ
+
+    Q: How do I become bot owner?
+    Run .whoami and add your ID to .env under BOT_OWNER_NUMBERS.
+
+    Q: My image commands fail.
+    Ensure ffmpeg is installed and working.
+
+    Q: I get API limit errors.
+    Make sure to use your own API keys (RemoveBG, YouTube, etc.)
+
+    ----
+
 ## 📌 Notes
 
 * This bot uses [Baileys] for WhatsApp multi-device support.
