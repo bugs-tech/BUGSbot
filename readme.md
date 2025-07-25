@@ -136,6 +136,7 @@ The menu shows all commands grouped in categories with stylish formatting and an
 * This bot uses [Baileys] for WhatsApp multi-device support.
 * Make sure to create your session and scan your QR code before using.
 * Ensure `menu.jpg` exists in the `media/` folder or the bot will send text instead.
+* use the whoami command to know your whatsapp id and add inside the .env file 
 
 ---
 
