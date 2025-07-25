@@ -12,7 +12,7 @@ import { isAutoViewStatusEnabled } from './commands/autoviewstatus.js'; // Impor
 import { isGroupBroadcastEnabled } from './commands/broadcastgroup.js'; // Import group broadcast toggle
 import dotenv from 'dotenv';
 dotenv.config();
-
+ 
 const commands = new Map();
 
 // Global owner tracking
