@@ -13,6 +13,7 @@ export default {
   allowSelfCommands: process.env.ALLOW_SELF_COMMANDS === 'true',
   commandCooldown: parseInt(process.env.COMMAND_COOLDOWN) || 2,
 
+  
   // Owners (WhatsApp JIDs)
   botOwnerNumbers: (process.env.BOT_OWNER_NUMBERS || '')
     .split(',')
