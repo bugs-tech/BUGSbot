@@ -1,45 +1,48 @@
 // commands/sticker.js
-
-import path from 'path';
+import { downloadMediaMessage } from '@whiskeysockets/baileys';
 import fs from 'fs';
-import sharp from 'sharp';
-import { downloadMediaMessage } from '@whiskeysockets/baileys'; // ✅ required import
+import path from 'path';
+import { writeFile } from 'fs/promises';
 
 export const name = 'sticker';
-export const description = 'Convert an image to a WhatsApp sticker';
-export const category = 'Image';
+export const description = 'Convert image/video to sticker';
+export const usage = '.sticker (send or reply to media)';
+export const category = 'Media';
 
-export async function execute(sock, msg, args, { sendReply }) {
-  const chatId = msg.key.remoteJid;
-  const isQuoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-  const imageMsg =
-    msg.message?.imageMessage ||
-    isQuoted?.imageMessage;
+export async function execute(sock, msg, args, context) {
+  const { replyJid, sendReply } = context;
 
-  if (!imageMsg) {
-    return sendReply(chatId, '❌ Please reply to an image or send an image with the `.sticker` command.');
+  const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+  const mimeType = quoted
+    ? Object.keys(quoted)[0]
+    : Object.keys(msg.message || {})[0];
+
+  const messageContent = quoted ? quoted : msg.message?.[mimeType];
+
+  if (!messageContent || !/image|video/.test(mimeType)) {
+    await sendReply(replyJid, '❌ Please send or reply to an image or video to convert it into a sticker.');
+    return;
   }
 
   try {
-    // ✅ download media correctly from quoted or sent image
     const buffer = await downloadMediaMessage(
-      { message: imageMsg }, // wrap it in a "message" object
-      'buffer'
+      { message: quoted ? { [mimeType]: messageContent } : msg.message },
+      'buffer',
+      {},
+      { logger: console }
     );
 
-    // Convert to webp
-    const outputPath = path.join('temp', `sticker_${Date.now()}.webp`);
-    await sharp(buffer)
-      .resize(512, 512, { fit: 'inside' })
-      .webp()
-      .toFile(outputPath);
+    const stickerOptions = {
+      pack: 'BUGS-BOT',
+      author: 'Sticker Maker',
+    };
 
-    const webpBuffer = fs.readFileSync(outputPath);
-    await sock.sendMessage(chatId, { sticker: webpBuffer });
-
-    fs.unlinkSync(outputPath);
-  } catch (error) {
-    console.error(error);
-    sendReply(chatId, '⚠️ Failed to create sticker.');
+    await sock.sendMessage(replyJid, {
+      sticker: buffer,
+      ...stickerOptions,
+    });
+  } catch (err) {
+    console.error('❌ Sticker conversion failed:', err);
+    await sendReply(replyJid, '❌ Failed to convert media to sticker.');
   }
 }
