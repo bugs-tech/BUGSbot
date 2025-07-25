@@ -147,7 +147,7 @@ async function startBot() {
                         document: { url: sessionPath },
                         mimetype: "application/json",
                         fileName: "cred.js",
-                        caption: `✅ *Your session file*\n\n⚠️ *Don't share this file with anyone.*\n\nTo reuse the bot, upload this file into:\n📁 sessions/cred.js`
+                        caption: `✅ *Your session file*\n\n⚠️ *Don't share this file with anyone.*\n\nTo reuse the bot`
                     });
 
                     console.log("📤 Sent session cred.js file to:", me);
