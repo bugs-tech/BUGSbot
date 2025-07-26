@@ -1,37 +1,34 @@
-import { setAutoTyping, isAutoTypingEnabled } from '../lib/autotyping.js';
+// commands/autotyping.js
+export const command = 'autotyping';
+export const description = 'Toggle auto typing on/off (Group Admins only)';
 
-export const name = 'autotyping';
-export const description = 'Toggle autotyping on or off';
-export const usage = '.autotyping on/off';
+export const execute = async (sock, msg, args, { sendReply, isGroup, isBotOwner, senderJid }) => {
+  if (!isGroup) return sendReply('❌ This command can only be used in groups.');
 
-export async function execute(sock, msg, args, context) {
-    const { senderJid, isBotOwner } = context;
+  // Fetch group metadata to check admin status
+  let metadata;
+  try {
+    metadata = await sock.groupMetadata(msg.key.remoteJid);
+  } catch {
+    return sendReply('❌ Failed to fetch group metadata.');
+  }
 
-    if (!isBotOwner) {
-        await sock.sendMessage(senderJid, { text: '🚫 Only bot owners can use this command.' });
-        return;
-    }
+  // Check if sender is admin or bot owner
+  const participant = metadata.participants.find(p => p.id === senderJid);
+  const isAdmin = participant?.admin === 'admin' || participant?.admin === 'superadmin';
 
-    const choice = args[0]?.toLowerCase();
-    if (choice !== 'on' && choice !== 'off') {
-        await sock.sendMessage(senderJid, {
-            text: `❓ Usage:\n.autotyping on\n.autotyping off`
-        });
-        return;
-    }
+  if (!isAdmin && !isBotOwner) {
+    return sendReply('🚫 Only group admins or the bot owner can toggle auto typing.');
+  }
 
-    const enable = choice === 'on';
-    setAutoTyping(enable);
+  const input = args[0]?.toLowerCase();
+  if (!['on', 'off'].includes(input)) {
+    return sendReply('⚙️ Usage: *.autotyping on* or *.autotyping off*');
+  }
 
-    // Show typing status once when turned on
-    if (enable) {
-        await sock.sendPresenceUpdate('composing', senderJid);
-        setTimeout(() => {
-            sock.sendPresenceUpdate('paused', senderJid);
-        }, 2000); // stops typing after 2 seconds
-    }
+  // Here you need your global settings store or database to save the toggle state
+  // For example:
+  global.autotypingEnabled = input === 'on';
 
-    await sock.sendMessage(senderJid, {
-        text: `✅ Autotyping is now *${choice.toUpperCase()}*.`
-    });
-}
+  sendReply(`✅ Auto-typing is now *${input.toUpperCase()}*`);
+};

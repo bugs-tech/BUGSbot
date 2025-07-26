@@ -1,75 +1,61 @@
 import ytdl from 'ytdl-core';
 import fs from 'fs';
 import path from 'path';
+import { sendReply } from '../lib/sendReply.js';
+import { sendAudio } from '../lib/sendAudio.js';
 
-export const name = 'yta';
-export const description = 'Download YouTube audio (MP3)';
-export const category = 'Downloader';
-export const usage = '.yta <YouTube URL>';
+const TMP_FILE = './tmp/yta.mp3';
 
-export async function execute(sock, msg, args, context) {
-  const { replyJid, sendReply } = context;
-  const url = args[0];
+export const command = {
+  name: 'yta',
+  alias: [],
+  description: 'Download audio from YouTube',
+  category: 'media',
+  use: '.yta <YouTube URL>',
+  async execute(sock, m, args) {
+    const url = args[0];
 
-  if (!url || !ytdl.validateURL(url)) {
-    return sendReply(replyJid, '❌ Please provide a valid YouTube URL.\nExample: `.yta https://youtu.be/xyz`');
+    if (!url || !ytdl.validateURL(url)) {
+      return await sendReply(sock, m.chat, '❌ Please provide a valid YouTube URL.', { quoted: m });
+    }
+
+    try {
+      const info = await ytdl.getInfo(url, {
+        requestOptions: {
+          headers: { 'User-Agent': 'Mozilla/5.0' }
+        }
+      });
+
+      const format = ytdl.chooseFormat(info.formats, { quality: 'highestaudio' });
+      const title = info.videoDetails.title;
+      const duration = info.videoDetails.lengthSeconds;
+      const channel = info.videoDetails.author.name;
+
+      const msg = `🎵 *Title:* ${title}\n🕒 *Duration:* ${Math.floor(duration / 60)}:${duration % 60}\n📺 *Channel:* ${channel}`;
+      await sendReply(sock, m.chat, msg, { quoted: m });
+
+      // Download the audio stream to temp file
+      const stream = ytdl.downloadFromInfo(info, {
+        filter: 'audioonly',
+        quality: 'highestaudio',
+      });
+
+      const fileStream = fs.createWriteStream(TMP_FILE);
+      stream.pipe(fileStream);
+
+      await new Promise((resolve, reject) => {
+        stream.on('end', resolve);
+        stream.on('error', reject);
+      });
+
+      // Send audio
+      await sendAudio(sock, m.chat, TMP_FILE, title, m);
+
+      // Cleanup
+      fs.unlinkSync(TMP_FILE);
+    } catch (err) {
+      console.error('❌ Error in .yta:', err);
+      await sendReply(sock, m.chat, '⚠️ Failed to download audio.', { quoted: m });
+    }
   }
-
-  try {
-    const info = await ytdl.getInfo(url);
-    const title = info.videoDetails.title;
-    const duration = formatDuration(parseInt(info.videoDetails.lengthSeconds));
-    const author = info.videoDetails.author.name;
-    const videoUrl = info.videoDetails.video_url;
-    const thumbnail = info.videoDetails.thumbnails?.[info.videoDetails.thumbnails.length - 1]?.url || '';
-
-    const audioFormat = ytdl.chooseFormat(info.formats, { quality: 'highestaudio' });
-    const fileSizeMB = audioFormat.contentLength ? (audioFormat.contentLength / 1024 / 1024).toFixed(2) : 'Unknown';
-
-    // Send info card with thumbnail
-    await sock.sendMessage(replyJid, {
-      image: { url: thumbnail },
-      caption: `
-🎵 *Title:* ${title}
-🕒 *Duration:* ${duration}
-👤 *Channel:* ${author}
-📦 *Size:* ~${fileSizeMB} MB
-🔗 *URL:* ${videoUrl}
-      `.trim()
-    });
-
-    // Download audio to temp file
-    const tempDir = './temp';
-    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
-    const tempPath = path.join(tempDir, `${Date.now()}_audio.mp3`);
-
-    const writeStream = fs.createWriteStream(tempPath);
-    ytdl(url, { filter: 'audioonly' }).pipe(writeStream);
-
-    // Wait for download to finish
-    await new Promise((resolve, reject) => {
-      writeStream.on('finish', resolve);
-      writeStream.on('error', reject);
-    });
-
-    // Send audio file
-    await sock.sendMessage(replyJid, {
-      document: fs.readFileSync(tempPath),
-      mimetype: 'audio/mpeg',
-      fileName: `${title}.mp3`
-    });
-
-    // Cleanup temp file
-    fs.unlinkSync(tempPath);
-
-  } catch (err) {
-    console.error('Error in .yta command:', err);
-    return sendReply(replyJid, '⚠️ Failed to process the YouTube link.');
-  }
-}
-
-function formatDuration(seconds) {
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
-}
+};
