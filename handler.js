@@ -5,20 +5,20 @@ import path from 'path';
 import os from 'os';
 import chalk from 'chalk';
 import settings from './settings.js';
-import { isAutoLikeEnabled } from './commands/autolike.js';  // Import autolike toggle state
+import { isAutoLikeEnabled } from './commands/autolike.js';
 import { isAutoLikeStatusEnabled } from './lib/autolikestatus.js';
 import { isAutoTypingEnabled } from './lib/autotyping.js';
-import { isAutoViewStatusEnabled } from './commands/autoviewstatus.js'; // Import autoviewstatus toggle
-import { isGroupBroadcastEnabled } from './commands/broadcastgroup.js'; // Import group broadcast toggle
+import { isAutoViewStatusEnabled } from './commands/autoviewstatus.js';
+import { isGroupBroadcastEnabled } from './commands/broadcastgroup.js';
 import dotenv from 'dotenv';
 dotenv.config();
- 
+
 const commands = new Map();
 
-// Global owner tracking
+// Track dynamic owners
 export const dynamicOwners = new Set(settings.botOwnerNumbers);
 
-// 📁 Dynamically load all command modules from ./commands folder
+// Load commands
 const commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
 for (const file of commandFiles) {
     const command = await import(`./commands/${file}`);
@@ -27,7 +27,7 @@ for (const file of commandFiles) {
     }
 }
 
-// 📬 Main handler for all incoming messages
+// Handle messages
 export async function handleCommand(sock, msg) {
     const prefix = settings.prefix || '.';
 
@@ -36,7 +36,7 @@ export async function handleCommand(sock, msg) {
     const fromMe = msg.key.fromMe;
     const isGroup = msg.key.remoteJid.endsWith('@g.us');
 
-    // Extract message text or fallback
+    // Extract text
     let text = '';
     if (msg.message?.conversation) text = msg.message.conversation;
     else if (msg.message?.extendedTextMessage?.text) text = msg.message.extendedTextMessage.text;
@@ -48,7 +48,7 @@ export async function handleCommand(sock, msg) {
     else if (msg.message) text = '[Non-text message received]';
     else text = '[Empty message]';
 
-    // === New auto-like reaction on messages (excluding statuses) ===
+    // Auto-like
     try {
         if (isAutoLikeEnabled() && !fromMe) {
             const messageTypesToReact = ['conversation', 'imageMessage', 'stickerMessage', 'videoMessage', 'documentMessage'];
@@ -63,7 +63,7 @@ export async function handleCommand(sock, msg) {
             }
         }
     } catch (err) {
-        console.error('❌ Auto-like reaction failed:', err);
+        console.error('❌ Auto-like failed:', err);
     }
 
     if (fromMe && !settings.allowSelfCommands && text.startsWith(prefix)) return;
@@ -74,15 +74,13 @@ export async function handleCommand(sock, msg) {
         try {
             const metadata = await sock.groupMetadata(msg.key.remoteJid);
             groupName = metadata.subject;
-        } catch (err) {
+        } catch {
             groupName = '[Unknown Group]';
         }
     }
 
     const nameColored = chalk.yellow(senderName);
-    const sourceInfo = isGroup
-        ? chalk.blueBright(`👥 ${groupName}`)
-        : (fromMe ? chalk.gray('🤖 Self Chat') : chalk.magenta('👤 Private Chat'));
+    const sourceInfo = isGroup ? chalk.blueBright(`👥 ${groupName}`) : (fromMe ? chalk.gray('🤖 Self Chat') : chalk.magenta('👤 Private Chat'));
     const messageColored = chalk.green(text);
     console.log(`💬 ${nameColored} (${sourceInfo}): ${messageColored}`);
 
@@ -94,19 +92,13 @@ export async function handleCommand(sock, msg) {
     const command = commands.get(commandName);
     if (!command) return;
 
-    const senderJid = isGroup
-        ? msg.key.participant || msg.participant
-        : msg.key.remoteJid;
-
+    const senderJid = isGroup ? msg.key.participant || msg.participant : msg.key.remoteJid;
     const replyJid = isGroup ? msg.key.remoteJid : senderJid;
 
     let resolvedJid = senderJid;
     try {
         const resolved = await sock.onWhatsApp(senderJid);
-        if (resolved?.[0]?.jid) {
-            resolvedJid = resolved[0].jid;
-            console.log('🔄 Resolved lid to:', resolvedJid);
-        }
+        if (resolved?.[0]?.jid) resolvedJid = resolved[0].jid;
     } catch (err) {
         console.warn('⚠️ Could not resolve JID:', err);
     }
@@ -119,22 +111,19 @@ export async function handleCommand(sock, msg) {
         return normalizedSender.endsWith(normOwner);
     });
 
-    console.log(`✅ isBotOwner: ${isBotOwner}`);
-    console.log('👑 Current dynamicOwners:', [...dynamicOwners]);
-
     if (fromMe && !dynamicOwners.has(resolvedJid)) {
         dynamicOwners.add(resolvedJid);
-        console.log(`🆕 Added ${resolvedJid} as a dynamic owner.`);
+        console.log(`🆕 Added ${resolvedJid} as dynamic owner`);
     }
 
+    // Block non-owners if no session
     const sessionPath = path.join('sessions', 'cred.js');
     if (!fs.existsSync(sessionPath)) {
-        await sock.sendMessage(replyJid, {
-            text: `❌ *Access Denied*\n\nYour session is not active.`
-        });
+        await sock.sendMessage(replyJid, { text: `❌ *Access Denied*\n\nYour session is not active.` });
         return;
     }
 
+    // Ban check
     const banPath = './data/banned.json';
     if (fs.existsSync(banPath)) {
         const banned = JSON.parse(fs.readFileSync(banPath));
@@ -144,17 +133,27 @@ export async function handleCommand(sock, msg) {
 
     console.log(chalk.cyan(`📥 ${commandName} called by ${senderName} (${normalizedSender}) on ${os.hostname()}`));
 
+    // Auto typing
     if (isAutoTypingEnabled()) {
         await sock.sendPresenceUpdate('composing', msg.key.remoteJid);
         await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
+    // Extract mentioned users
+    const mentionedJid = (
+        msg.message?.extendedTextMessage?.contextInfo?.mentionedJid ||
+        msg.message?.contextInfo?.mentionedJid ||
+        []
+    );
+
+    // Reply helper
     async function sendReply(jid, replyText, extra = {}) {
         const tag = '\n\n— *BUGS-BOT support tech*';
         return sock.sendMessage(jid, { text: replyText + tag, ...extra });
     }
 
     try {
+        // Restrict gcbroadcast
         if (commandName === 'gcbroadcast') {
             const metadata = await sock.groupMetadata(msg.key.remoteJid);
             const senderIsAdmin = metadata.participants?.find(p => p.id === resolvedJid && (p.admin === 'admin' || p.admin === 'superadmin'));
@@ -163,14 +162,17 @@ export async function handleCommand(sock, msg) {
             }
         }
 
+        // ✅ Execute command with full context
         await command.execute(sock, msg, args, {
             senderJid,
             senderNumber: normalizedSender,
             isGroup,
             isBotOwner,
             replyJid,
+            mentionedJid,
             sendReply
         });
+
         console.log(chalk.greenBright(`✅ Command '${commandName}' executed successfully.`));
     } catch (err) {
         console.error(chalk.bgRed.white(`❌ Error executing ${commandName}:`), err);
@@ -180,7 +182,7 @@ export async function handleCommand(sock, msg) {
     }
 }
 
-// Auto-react to statuses (already present)
+// Auto-react to statuses
 export async function handleStatus(sock, msg) {
     if (msg.key.remoteJid === 'status@broadcast' && (isAutoLikeStatusEnabled() || isAutoViewStatusEnabled())) {
         try {
