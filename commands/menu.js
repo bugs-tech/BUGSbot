@@ -28,7 +28,7 @@ const imageCommands = ['toimg','blur','rotate','sticker',
 
 const downloadCommands = ['instagram','play','yta','ytv','ytmp3','ytmp4'];
 
-const aiCommands = ['ai', 'ask','chat','define','img','translate'];
+const aiCommands = ['ai', 'ask','chat','define','img','img1','img2','translate'];
 
 // RAM usage info
 function getRamUsage() {
