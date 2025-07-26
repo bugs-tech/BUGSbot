@@ -1,48 +1,60 @@
-// commands/sticker.js
 import { downloadMediaMessage } from '@whiskeysockets/baileys';
 import fs from 'fs';
-import path from 'path';
 import { writeFile } from 'fs/promises';
+import path from 'path';
+import { fileTypeFromBuffer } from 'file-type';
+import { tmpdir } from 'os';
 
 export const name = 'sticker';
-export const description = 'Convert image/video to sticker';
-export const usage = '.sticker (send or reply to media)';
+export const description = 'Convert image or video to sticker';
 export const category = 'Media';
+export const usage = '.sticker (reply to image or video)';
 
-export async function execute(sock, msg, args, context) {
-  const { replyJid, sendReply } = context;
+export async function execute(sock, msg, args, { replyJid, sendReply }) {
+    let mediaMessage;
+    let quotedType;
 
-  const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-  const mimeType = quoted
-    ? Object.keys(quoted)[0]
-    : Object.keys(msg.message || {})[0];
+    if (msg.message?.extendedTextMessage?.contextInfo?.quotedMessage) {
+        const quoted = msg.message.extendedTextMessage.contextInfo.quotedMessage;
+        quotedType = Object.keys(quoted)[0];
+        if (quotedType === 'imageMessage' || quotedType === 'videoMessage') {
+            mediaMessage = { message: quoted };
+        }
+    }
 
-  const messageContent = quoted ? quoted : msg.message?.[mimeType];
+    // Fallback to normal message (if not replying)
+    if (!mediaMessage && (msg.message?.imageMessage || msg.message?.videoMessage)) {
+        const directType = Object.keys(msg.message)[0];
+        mediaMessage = { message: { [directType]: msg.message[directType] } };
+    }
 
-  if (!messageContent || !/image|video/.test(mimeType)) {
-    await sendReply(replyJid, '❌ Please send or reply to an image or video to convert it into a sticker.');
-    return;
-  }
+    if (!mediaMessage) {
+        return sendReply(replyJid, '❌ Please reply to an image or video, or send one directly with the command.');
+    }
 
-  try {
-    const buffer = await downloadMediaMessage(
-      { message: quoted ? { [mimeType]: messageContent } : msg.message },
-      'buffer',
-      {},
-      { logger: console }
-    );
+    try {
+        const buffer = await downloadMediaMessage(
+            mediaMessage,
+            'buffer',
+            {},
+            { logger: console }
+        );
 
-    const stickerOptions = {
-      pack: 'BUGS-BOT',
-      author: 'Sticker Maker',
-    };
+        if (!buffer) {
+            return sendReply(replyJid, '❌ Failed to download media. Try again.');
+        }
 
-    await sock.sendMessage(replyJid, {
-      sticker: buffer,
-      ...stickerOptions,
-    });
-  } catch (err) {
-    console.error('❌ Sticker conversion failed:', err);
-    await sendReply(replyJid, '❌ Failed to convert media to sticker.');
-  }
+        const type = await fileTypeFromBuffer(buffer);
+        const fileName = path.join(tmpdir(), `sticker-input.${type?.ext || 'tmp'}`);
+        await writeFile(fileName, buffer);
+
+        await sock.sendMessage(replyJid, {
+            sticker: buffer
+        });
+
+        fs.unlinkSync(fileName); // cleanup
+    } catch (err) {
+        console.error('❌ Sticker conversion failed:', err);
+        await sendReply(replyJid, '❌ Failed to convert media to sticker.');
+    }
 }
