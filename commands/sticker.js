@@ -2,7 +2,7 @@ import { downloadMediaMessage } from '@whiskeysockets/baileys';
 import fs from 'fs';
 import { writeFile } from 'fs/promises';
 import path from 'path';
-import { fileTypeFromBuffer } from 'file-type';
+import fileType from 'file-type'; // <-- FIXED
 import { tmpdir } from 'os';
 
 export const name = 'sticker';
@@ -44,7 +44,7 @@ export async function execute(sock, msg, args, { replyJid, sendReply }) {
             return sendReply(replyJid, '❌ Failed to download media. Try again.');
         }
 
-        const type = await fileTypeFromBuffer(buffer);
+        const type = await fileType.fromBuffer(buffer); // <-- FIXED
         const fileName = path.join(tmpdir(), `sticker-input.${type?.ext || 'tmp'}`);
         await writeFile(fileName, buffer);
 
