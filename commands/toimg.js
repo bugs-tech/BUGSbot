@@ -1,48 +1,49 @@
-// commands/toimg.js
 import { downloadMediaMessage } from '@whiskeysockets/baileys';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import sharp from 'sharp';
 
-export const command = {
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+export default {
   name: 'toimg',
-  category: 'media',
-  description: 'Converts sticker or image (even view-once) to a normal image.',
+  alias: ['img', 'toimage'],
+  category: 'converter',
+  desc: 'Convert sticker to image',
+  async execute(sock, msg, args, sendReply) {
+    const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage 
+                || msg.message?.ephemeralMessage?.message?.extendedTextMessage?.contextInfo?.quotedMessage;
 
-  async execute(m, { sock }) {
+    const isSticker = quoted?.stickerMessage;
+
+    if (!quoted || !isSticker) {
+      return sendReply('⚠️ Please reply to a sticker to convert it to image.');
+    }
+
     try {
-      const msg = m.quoted || m;
-      const type = msg.mtype;
-
-      if (!['imageMessage', 'stickerMessage'].includes(type)) {
-        return sock.sendMessage(m.chat, {
-          text: '❌ Reply to an image or sticker to convert it.',
-        }, { quoted: m });
-      }
-
       const mediaBuffer = await downloadMediaMessage(
-        msg,
+        { key: msg.message.extendedTextMessage.contextInfo.stanzaId ? msg.message.extendedTextMessage.contextInfo : msg.key, message: quoted },
         'buffer',
         {},
-        {
-          logger: console,
-          reuploadRequest: sock.updateMediaMessage
-        }
+        { logger: sock.logger }
       );
 
-      if (!mediaBuffer) {
-        return sock.sendMessage(m.chat, {
-          text: '⚠️ Failed to download the media.',
-        }, { quoted: m });
-      }
+      const imgPath = path.join(__dirname, '../temp', `img-${Date.now()}.png`);
+      await sharp(mediaBuffer)
+        .png()
+        .toFile(imgPath);
 
-      await sock.sendMessage(m.chat, {
-        image: mediaBuffer,
-        caption: '🖼️ Here is your image!',
-      }, { quoted: m });
+      await sock.sendMessage(msg.key.remoteJid, {
+        image: fs.readFileSync(imgPath),
+        caption: '🖼️ Converted from sticker!',
+      }, { quoted: msg });
 
+      fs.unlinkSync(imgPath);
     } catch (err) {
-      console.error('[toimg error]', err);
-      await sock.sendMessage(m.chat, {
-        text: '⚠️ Failed to convert. Make sure you replied to a valid sticker or image.',
-      }, { quoted: m });
+      console.error('❌ toimg error:', err);
+      sendReply('⚠️ Failed to convert sticker to image.');
     }
   }
 };
