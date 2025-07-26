@@ -34,6 +34,6 @@ export default {
 
   // YouTube API (for .play, .yta, .ytv)
   youtube: {
-    apiKey: process.env.YOUTUBE_API_KEY || '',
+    apiKey: process.env.YOUTUBE_API_KEY || 'AIzaSyApzSNZCsBLSUFdLY_-oJ27bI9XYn8ILsw',
   },
 };
