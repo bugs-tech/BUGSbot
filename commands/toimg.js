@@ -1,35 +1,48 @@
 // commands/toimg.js
-import path from 'path';
-import fs from 'fs';
-import sharp from 'sharp';
+import { downloadMediaMessage } from '@whiskeysockets/baileys';
 
-export const name = 'toimg';
-export const description = 'Convert a sticker (webp) to image (png)';
-export const category = 'Image';
+export const command = {
+  name: 'toimg',
+  category: 'media',
+  description: 'Converts sticker or image (even view-once) to a normal image.',
 
-export async function execute(sock, msg, args, { sendReply }) {
-  const chatId = msg.key.remoteJid;
+  async execute(m, { sock }) {
+    try {
+      const msg = m.quoted || m;
+      const type = msg.mtype;
 
-  // Sticker is either directly sent or quoted
-  const sticker = msg.message?.stickerMessage || msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.stickerMessage;
+      if (!['imageMessage', 'stickerMessage'].includes(type)) {
+        return sock.sendMessage(m.chat, {
+          text: '❌ Reply to an image or sticker to convert it.',
+        }, { quoted: m });
+      }
 
-  if (!sticker) {
-    return sendReply(chatId, '❌ Please reply to a sticker or send a sticker with the `.toimg` command.');
+      const mediaBuffer = await downloadMediaMessage(
+        msg,
+        'buffer',
+        {},
+        {
+          logger: console,
+          reuploadRequest: sock.updateMediaMessage
+        }
+      );
+
+      if (!mediaBuffer) {
+        return sock.sendMessage(m.chat, {
+          text: '⚠️ Failed to download the media.',
+        }, { quoted: m });
+      }
+
+      await sock.sendMessage(m.chat, {
+        image: mediaBuffer,
+        caption: '🖼️ Here is your image!',
+      }, { quoted: m });
+
+    } catch (err) {
+      console.error('[toimg error]', err);
+      await sock.sendMessage(m.chat, {
+        text: '⚠️ Failed to convert. Make sure you replied to a valid sticker or image.',
+      }, { quoted: m });
+    }
   }
-
-  try {
-    const buffer = await sock.downloadMediaMessage(msg);
-    const outputPath = path.join('temp', `toimg_${Date.now()}.png`);
-
-    await sharp(buffer)
-      .png()
-      .toFile(outputPath);
-
-    await sock.sendMessage(chatId, { image: fs.readFileSync(outputPath) });
-
-    fs.unlinkSync(outputPath);
-  } catch (error) {
-    console.error(error);
-    sendReply(chatId, '⚠️ Failed to convert sticker to image.');
-  }
-}
+};
