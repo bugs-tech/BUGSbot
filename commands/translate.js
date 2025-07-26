@@ -1,56 +1,64 @@
-// commands/translate.js
+import fetch from 'node-fetch';
 
-import axios from 'axios';
-
-export const name = 'translate';
-export const description = 'Translate text to a specified language using OpenAI';
-export const category = 'AI';
-
-export async function execute(sock, msg, args, context) {
-    const { senderJid } = context;
-
+export default {
+  name: 'translate',
+  aliases: ['tl'],
+  description: 'Translate text to a target language (e.g., .translate spanish hello)',
+  category: 'general',
+  usage: '.translate <target-language> <text>',
+  async execute(m, { args, sendReply }) {
     if (args.length < 2) {
-        await sock.sendMessage(senderJid, {
-            text: `🌍 *Usage:* .translate <language> <text>\n\nExample: .translate french Hello, how are you?`
-        });
-        return;
+      return await sendReply('❌ Usage: `.translate <language> <text>`\nExample: `.translate french Hello world`');
     }
 
-    const targetLang = args[0];
-    const textToTranslate = args.slice(1).join(' ');
+    const targetLang = args[0].toLowerCase();
+    const text = args.slice(1).join(' ');
 
-    const apiKey = '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';
-    const endpoint = 'https://api.openai.com/v1/chat/completions';
+    // Mapping of language names to ISO codes
+    const langMap = {
+      english: 'en',
+      french: 'fr',
+      spanish: 'es',
+      german: 'de',
+      italian: 'it',
+      portuguese: 'pt',
+      russian: 'ru',
+      chinese: 'zh',
+      arabic: 'ar',
+      japanese: 'ja',
+      hindi: 'hi',
+    };
+
+    const langCode = langMap[targetLang];
+    if (!langCode) {
+      return await sendReply(`❌ Unsupported language: *${targetLang}*\nTry: english, french, spanish, german, etc.`);
+    }
 
     try {
-        const response = await axios.post(
-            endpoint,
-            {
-                model: 'gpt-4',
-                messages: [
-                    {
-                        role: 'user',
-                        content: `Translate the following into ${targetLang}:\n\n${textToTranslate}`
-                    }
-                ]
-            },
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                }
-            }
-        );
+      const res = await fetch('https://libretranslate.de/translate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          q: text,
+          source: 'auto',
+          target: langCode,
+          format: 'text'
+        })
+      });
 
-        const translated = response.data.choices[0].message.content;
+      if (!res.ok) {
+        throw new Error(`Failed to translate. Status: ${res.status}`);
+      }
 
-        await sock.sendMessage(senderJid, {
-            text: `🌐 *Translated to ${targetLang}:*\n\n${translated}`
-        });
+      const json = await res.json();
+      const translated = json.translatedText;
+
+      await sendReply(`🌐 Translated to *${targetLang}*:\n\`\`\`${translated}\`\`\``);
     } catch (err) {
-        console.error('❌ Translation failed:', err.message);
-        await sock.sendMessage(senderJid, {
-            text: `⚠️ Failed to translate.\nReason: ${err.message || 'Unknown error'}`
-        });
+      console.error(err);
+      await sendReply(`⚠️ Translation failed.\nReason: ${err.message}`);
     }
-}
+  }
+};
