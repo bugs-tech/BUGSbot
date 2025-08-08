@@ -5,8 +5,8 @@ export const name = 'repo';
 export const description = 'Show the BUGS-BOT GitHub repository with stats';
 export const category = 'General';
 
-const REPO_URL = 'https://github.com/morel22/BUGSbot';
-const API_URL = 'https://api.github.com/repos/morel22/BUGSbot';
+const REPO_URL = 'https://github.com/bugs-tech/BUGSbot';
+const API_URL = 'https://api.github.com/repos/bugs-tech/BUGSbot';
 
 export async function execute(sock, msg) {
   const chatId = msg.key.remoteJid;
@@ -33,7 +33,7 @@ export async function execute(sock, msg) {
 🧪 Powered by: *BUGS-BOT Support Tech*
 🚀 Fork, Deploy, Modify & Rule!
 
-🔗 *Fork now:* https://github.com/morel22/BUGSbot/fork
+🔗 *Fork now:* https://github.com/bugs-tech/BUGSbot/fork
 `;
 
     await sock.sendMessage(chatId, { text: caption });

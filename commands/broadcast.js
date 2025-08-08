@@ -7,24 +7,24 @@ export const category = 'Owner';
 import fs from 'fs';
 
 export async function execute(sock, msg, args, context) {
-  const { senderJid, isBotOwner, sendReply } = context;
+  const { isBotOwner, sendReply } = context;
+
+  // Helper to reply directly to user's command message
+  const reply = async (text) => {
+    return sendReply(msg.key.remoteJid, text, { quoted: msg });
+  };
 
   if (!isBotOwner) {
-    return sendReply(senderJid, '🚫 You are not authorized to use this command.');
+    return reply('🚫 You are not authorized to use this command.');
   }
 
   if (args.length === 0) {
-    return sendReply(senderJid, '⚠️ Please provide a message to broadcast.\nUsage: .broadcast Your message here');
+    return reply('⚠️ Please provide a message to broadcast.\nUsage: .broadcast Your message here');
   }
 
   const messageText = args.join(' ');
 
   try {
-    // Load all chat IDs from the session folder or your chat storage
-    // Here, we simulate loading chats from a file or a method:
-    // You need to adjust this according to your implementation
-
-    // Example: Assuming you save chat IDs in 'data/chats.json'
     let chatIds = [];
     if (fs.existsSync('./data/chats.json')) {
       const data = JSON.parse(fs.readFileSync('./data/chats.json'));
@@ -32,7 +32,7 @@ export async function execute(sock, msg, args, context) {
         chatIds = data;
       }
     } else {
-      return sendReply(senderJid, '⚠️ No chat list found to broadcast.');
+      return reply('⚠️ No chat list found to broadcast.');
     }
 
     let successCount = 0;
@@ -47,14 +47,14 @@ export async function execute(sock, msg, args, context) {
       }
     }
 
-    return sendReply(senderJid,
+    return reply(
       `📢 Broadcast completed.\n` +
-      `Sent to: ${successCount} chats\n` +
-      `Failed: ${failCount} chats`
+      `✅ Sent to: ${successCount} chats\n` +
+      `❌ Failed: ${failCount} chats`
     );
 
   } catch (err) {
     console.error('❌ Broadcast error:', err);
-    return sendReply(senderJid, `❌ Failed to broadcast message.\nReason: ${err.message}`);
+    return reply(`❌ Failed to broadcast message.\nReason: ${err.message}`);
   }
 }

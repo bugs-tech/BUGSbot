@@ -1,49 +1,51 @@
-import { downloadMediaMessage } from '@whiskeysockets/baileys';
+// toimg.js
+
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
-import sharp from 'sharp';
+import { tmpdir } from 'os';
+import { downloadMediaMessage } from '@whiskeysockets/baileys';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+export const name = 'toimg';
+export const description = 'Convert sticker or view-once image to normal image';
+export const category = 'tools';
 
-export default {
-  name: 'toimg',
-  alias: ['img', 'toimage'],
-  category: 'converter',
-  desc: 'Convert sticker to image',
-  async execute(sock, msg, args, sendReply) {
-    const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage 
-                || msg.message?.ephemeralMessage?.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+export async function execute(sock, msg, args, context) {
+  const quotedMsg =
+    msg.message?.extendedTextMessage?.contextInfo?.quotedMessage ||
+    msg.message?.viewOnceMessageV2?.message;
 
-    const isSticker = quoted?.stickerMessage;
-
-    if (!quoted || !isSticker) {
-      return sendReply('⚠️ Please reply to a sticker to convert it to image.');
-    }
-
-    try {
-      const mediaBuffer = await downloadMediaMessage(
-        { key: msg.message.extendedTextMessage.contextInfo.stanzaId ? msg.message.extendedTextMessage.contextInfo : msg.key, message: quoted },
-        'buffer',
-        {},
-        { logger: sock.logger }
-      );
-
-      const imgPath = path.join(__dirname, '../temp', `img-${Date.now()}.png`);
-      await sharp(mediaBuffer)
-        .png()
-        .toFile(imgPath);
-
-      await sock.sendMessage(msg.key.remoteJid, {
-        image: fs.readFileSync(imgPath),
-        caption: '🖼️ Converted from sticker!',
-      }, { quoted: msg });
-
-      fs.unlinkSync(imgPath);
-    } catch (err) {
-      console.error('❌ toimg error:', err);
-      sendReply('⚠️ Failed to convert sticker to image.');
-    }
+  if (!quotedMsg || (!quotedMsg.stickerMessage && !quotedMsg.imageMessage)) {
+    return await context.sendReply('❌ Reply to a *sticker* or *view-once image* to convert to image.');
   }
-};
+
+  const mediaMessage =
+    quotedMsg.stickerMessage ||
+    quotedMsg.imageMessage;
+
+  try {
+    const buffer = await downloadMediaMessage(
+      {
+        key: msg.message.extendedTextMessage?.contextInfo?.quotedMessage
+          ? msg.message.extendedTextMessage.contextInfo
+          : msg,
+        message: quotedMsg,
+      },
+      'buffer',
+      {},
+      { reuploadRequest: sock.updateMediaMessage }
+    );
+
+    const fileName = path.join(tmpdir(), `toimg_${Date.now()}.jpg`);
+    fs.writeFileSync(fileName, buffer);
+
+    await sock.sendMessage(msg.key.remoteJid, {
+      image: fs.readFileSync(fileName),
+      caption: '✅ Here is your image.',
+    }, { quoted: msg });
+
+    fs.unlinkSync(fileName);
+  } catch (e) {
+    console.error('❌ toimg error:', e);
+    await context.sendReply('❌ Failed to convert to image.');
+  }
+}

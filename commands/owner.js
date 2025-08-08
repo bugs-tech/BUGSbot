@@ -19,7 +19,7 @@ export async function execute(sock, msg) {
 ┃ 🔥 *Bot Name:* BUGS-BOT
 ┃ 📞 *Contact(s):*
 ${contactList}
-┃ 🌐 *GitHub:* github.com/morel22/BUGSbot
+┃ 🌐 *GitHub:* github.com/bugs-tech/BUGSbot
 ┗━━━━━━━━━━━━━━━━━━━━━━┛
 
 💡 *Use this command to contact the bot author directly.*

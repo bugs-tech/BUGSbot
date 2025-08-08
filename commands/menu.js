@@ -1,34 +1,31 @@
 import os from 'os';
 import { execSync } from 'child_process';
 import fs from 'fs';
+import path from 'path';
 import settings from '../settings.js';
 
-const botName = '🔥 BUGS-BOT 🔥'; // 🔁 Change to your bot name
-const imagePath = './media/menu.jpg'; // 🔁 Your bot image (must exist!)
+const botName = '🔥 BUGS-BOT 🔥';
+
+// ✅ Use a folder of images instead of a single image
+const imageFolderPath = './media/menu-images'; // place menu1.jpg, menu2.jpg, etc. here
 
 // Commands grouped by category
 const ownerCommands = [
-   'autolike','autoviewstatus','autolikestatus','autoreact','autotyping','broadcast',
-   'shutdown', 'clearall','restart', 
-  'autoread', 'autotyping','spam'
+  'autolike','autoviewstatus','autolikestatus','autoreact','autotyping','broadcast',
+  'shutdown', 'clearall','restart', 
+  'autoread', 'autotyping','addowner','removeowner'
 ];
-
 const groupCommands = [
-  'promote', 'demote', 'kick', 'mute', 'antilink', 'grouplock','gcbroadcast',
-  'setwelcome', 'tagall','ban','listonline','welcome','unmute'
+  'promote', 'demote', 'kick','lock','unlock', 'mute', 'antilink', 'grouplock','gcbroadcast',
+  'setwelcome', 'tagall','ban','warn','listonline','welcome','unmute',
+    'clearwarn','gcbroadcast'
 ];
-
 const generalCommands = ['ping', 'menu','echo','about','joke','roll','owner','repo','whoami'];
-
 const gameCommands = ['rps','ttt','ngg','hangman','wordscramble'];
-
-const imageCommands = ['toimg','blur','rotate','sticker',
-  'invert','greyscale','removebg'
-];
-
-const downloadCommands = ['instagram','play','yta','ytv','ytmp3','ytmp4'];
-
-const aiCommands = ['ai', 'ask','chat','define','img','img1','img2','translate'];
+const imageCommands = ['toimg','blur','rotate','sticker','invert','greyscale','removebg'];
+const downloadCommands = ['apkdl','play','song','yta','ytv','ytdl','ytmp3','ytmp4'];
+const aiCommands = ['ai', 'ask','chat','img','gimg','gimg1','translate'];
+const funCommands = ['bomb','crash','lag','spam'];
 
 // RAM usage info
 function getRamUsage() {
@@ -46,7 +43,7 @@ function getSpeedMs() {
   return ((end - start) / 1000).toFixed(4) + 's';
 }
 
-// Helper function for consistent replies
+// Reply helper
 async function sendReply(sock, msg, text, extra = {}) {
   const chatId = msg.key.remoteJid;
   const footer = '\n\n— *BUGS-BOT support tech*';
@@ -58,7 +55,6 @@ export const description = 'Show all commands grouped by category with style and
 export const category = 'General';
 
 export async function execute(sock, msg, args) {
-  // Always reply in the same chat (group or private)
   const chatId = msg.key.remoteJid;
   const pushName = msg.pushName || 'User';
 
@@ -68,7 +64,6 @@ export async function execute(sock, msg, args) {
   const ram = getRamUsage();
   const speed = getSpeedMs();
 
-  // Build sections for each command category
   const ownerCmdsText = ownerCommands.map(cmd => `│★ ${cmd}`).join('\n');
   const groupCmdsText = groupCommands.map(cmd => `│★ ${cmd}`).join('\n');
   const aiCmdsText = aiCommands.map(cmd => `│★ ${cmd}`).join('\n');
@@ -76,8 +71,10 @@ export async function execute(sock, msg, args) {
   const downloadCmdsText = downloadCommands.map(cmd => `│★ ${cmd}`).join('\n');
   const generalCmdsText = generalCommands.map(cmd => `│★ ${cmd}`).join('\n');
   const gameCmdsText = gameCommands.map(cmd => `│★ ${cmd}`).join('\n');
+  const funCmdsText = funCommands.map(cmd => `│★ ${cmd}`).join('\n');
 
-  const totalCommands = ownerCommands.length + groupCommands.length + gameCommands.length+ generalCommands.length + downloadCommands.length + imageCommands.length + aiCommands.length;
+  const totalCommands = ownerCommands.length + groupCommands.length + gameCommands.length +funCommands.length
+    generalCommands.length + downloadCommands.length + imageCommands.length + aiCommands.length;
 
   const menuText = `
 ━━━━━《 ${botName} \n MENU 》━━━━━
@@ -111,16 +108,31 @@ ${downloadCmdsText}
 ┣━━❍「 *GAMES* 」❍
 ${gameCmdsText}
 
+┣━━❍「 *FUN* 」❍
+${funCmdsText}
+
 ┣━━❍「 *GENERAL* 」❍
 ${generalCmdsText}
-
 ╰━━━━━━━━━━━━━━━━━━━━━━━▣
 `.trim();
 
   try {
-    if (fs.existsSync(imagePath)) {
+    let imageBuffer = null;
+
+    // Read images from menu folder
+    const files = fs.readdirSync(imageFolderPath).filter(file =>
+      file.endsWith('.jpg') || file.endsWith('.jpeg') || file.endsWith('.png')
+    );
+
+    if (files.length > 0) {
+      const randomImage = files[Math.floor(Math.random() * files.length)];
+      const imagePath = path.join(imageFolderPath, randomImage);
+      imageBuffer = fs.readFileSync(imagePath);
+    }
+
+    if (imageBuffer) {
       await sock.sendMessage(chatId, {
-        image: fs.readFileSync(imagePath),
+        image: imageBuffer,
         caption: menuText
       });
     } else {

@@ -1,48 +1,46 @@
-// commands/gcbroadcast.js
-
-import { isGroupBroadcastEnabled } from '../commands/broadcastgroup.js';
-
 export const name = 'gcbroadcast';
-export const description = 'Broadcast a message to all groups (admin only)';
-export const type = 'admin';
+export const description = 'Send a message privately to all group members (admins only)';
+export const usage = '.gcbroadcast <message>';
+export const category = 'Admin';
 
 export async function execute(sock, msg, args, context) {
   const { isGroup, senderJid, replyJid, sendReply } = context;
 
   if (!isGroup) {
-    return sendReply(replyJid, '❌ This command can only be used in a group.');
+    await sendReply(replyJid, '❌ This command can only be used inside a group.');
+    return;
   }
 
-  if (!isGroupBroadcastEnabled()) {
-    return sendReply(replyJid, '❌ Group broadcast is currently disabled.\nUse *groupbroadcast on* to enable it.');
+  if (!args.length) {
+    await sendReply(replyJid, '❌ Please provide a message to broadcast.');
+    return;
   }
 
+  // Get group metadata and admins
   const metadata = await sock.groupMetadata(replyJid);
-  const senderIsAdmin = metadata.participants?.find(p =>
-    p.id === senderJid && (p.admin === 'admin' || p.admin === 'superadmin')
-  );
+  const adminIds = metadata.participants
+    .filter(p => p.admin === 'admin' || p.admin === 'superadmin')
+    .map(p => p.id);
 
-  if (!senderIsAdmin) {
-    return sendReply(replyJid, '🚫 Only group admins can use this command.');
+  if (!adminIds.includes(senderJid)) {
+    await sendReply(replyJid, '❌ Only group admins can use this command.');
+    return;
   }
 
-  const message = args.join(' ');
-  if (!message) {
-    return sendReply(replyJid, '📝 Please provide a message to broadcast.\nExample: *.gcbroadcast Hello everyone!*');
-  }
+  const broadcastMsg = args.join(' ');
 
-  const groups = await sock.groupFetchAllParticipating();
-  const groupIds = Object.keys(groups);
-
-  let count = 0;
-  for (const groupId of groupIds) {
+  // Send private message to all participants except bot itself
+  for (const participant of metadata.participants) {
+    const jid = participant.id;
     try {
-      await sock.sendMessage(groupId, { text: `📢 *Broadcast:*\n\n${message}` });
-      count++;
+      if (jid !== sock.user.id) {
+        await sock.sendMessage(jid, { text: `📢 *Group Broadcast*\n\n${broadcastMsg}` });
+        await new Promise(r => setTimeout(r, 500));
+      }
     } catch (err) {
-      console.error(`❌ Failed to send to group ${groupId}:`, err);
+      console.error(`Failed to send broadcast to ${jid}:`, err);
     }
   }
 
-  return sendReply(replyJid, `✅ Broadcast sent to ${count} group(s).`);
+  await sendReply(replyJid, '✅ Broadcast message sent to all group members.');
 }

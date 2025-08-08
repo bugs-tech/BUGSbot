@@ -1,56 +1,40 @@
-// commands/translate.js
-
-import axios from 'axios';
+import fetch from 'node-fetch';
 
 export const name = 'translate';
-export const description = 'Translate text to a specified language using OpenAI';
+export const description = 'Translate text using GPT-4 AI';
 export const category = 'AI';
 
 export async function execute(sock, msg, args, context) {
-    const { senderJid } = context;
+  const { sendReply } = context;
 
-    if (args.length < 2) {
-        await sock.sendMessage(senderJid, {
-            text: `🌍 *Usage:* .translate <language> <text>\n\nExample: .translate french Hello, how are you?`
-        });
-        return;
+  if (!args.length) {
+    return sendReply('📌 Usage: .translate [text to translate]\n_Example: .translate Hello, how are you in French?_');
+  }
+
+  const query = encodeURIComponent(args.join(' '));
+  const apiUrl = `https://api.giftedtech.co.ke/api/ai/gpt4?apikey=gifted&q=${query}`;
+
+  try {
+    console.log(`📥 translate called with: ${decodeURIComponent(query)}`);
+
+    const res = await fetch(apiUrl);
+    const json = await res.json();
+
+    console.log('🔍 API Response (translate):', json);
+
+    if (!json?.result) {
+      return sendReply('⚠️ GPT-4 did not return a valid translation.\n\n— *BUGS-BOT support tech*');
     }
 
-    const targetLang = args[0];
-    const textToTranslate = args.slice(1).join(' ');
+    // Remove "Powered by..." footer
+    const cleanResult = json.result
+      .replace(/_?Powered by.*$/i, '')
+      .trim();
 
-    const apiKey = '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';
-    const endpoint = 'https://api.openai.com/v1/chat/completions';
+    await sendReply(`*🌐 Translated Result:*\n\n${cleanResult}\n\n— *BUGS-BOT support tech*`);
 
-    try {
-        const response = await axios.post(
-            endpoint,
-            {
-                model: 'gpt-4',
-                messages: [
-                    {
-                        role: 'user',
-                        content: `Translate the following into ${targetLang}:\n\n${textToTranslate}`
-                    }
-                ]
-            },
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                }
-            }
-        );
-
-        const translated = response.data.choices[0].message.content;
-
-        await sock.sendMessage(senderJid, {
-            text: `🌐 *Translated to ${targetLang}:*\n\n${translated}`
-        });
-    } catch (err) {
-        console.error('❌ Translation failed:', err.message);
-        await sock.sendMessage(senderJid, {
-            text: `⚠️ Failed to translate.\nReason: ${err.message || 'Unknown error'}`
-        });
-    }
+  } catch (error) {
+    console.error('❌ Error executing translate:', error);
+    return sendReply('❌ An unexpected error occurred while translating.\n\n');
+  }
 }

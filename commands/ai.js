@@ -1,47 +1,37 @@
+import fetch from 'node-fetch';
+
+export const name = 'ai';
+export const description = 'Ask the AI anything';
+export const category = 'AI';
+
 export async function execute(sock, msg, args, context) {
-    const chatId = msg.key.remoteJid;
-    const prompt = args.join(' ');
+  const { sendReply } = context;
 
-    if (!prompt) {
-        return await sock.sendMessage(chatId, {
-            text: '❗ *Usage:* .ai <your prompt>'
-        });
+  if (!args.length) {
+    return sendReply('📌 Usage: .ai [your question]\n_Example: .ai Who is Elon Musk?_');
+  }
+
+  const query = encodeURIComponent(args.join(' '));
+  const apiUrl = `https://apis.davidcyriltech.my.id/ai/chatbot?query=${query}`;
+
+  try {
+    console.log(`📥 ai called with query: ${decodeURIComponent(query)}`);
+
+    const res = await fetch(apiUrl);
+    const json = await res.json();
+
+    console.log('🔍 API Response (ai):', json);
+
+    if (!json?.result) {
+      return sendReply('⚠️ AI did not return a valid response.\n\n— *BUGS-BOT support tech*');
     }
 
-    const openaiKey = settings.openaiApiKey;
-    if (!openaiKey) {
-        return await sock.sendMessage(chatId, {
-            text: '⚠️ OpenAI API key not configured in settings.'
-        });
-    }
+    const replyText = json.result.trim();
 
-    try {
-        const res = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${openaiKey}`
-            },
-            body: JSON.stringify({
-                model: 'gpt-3.5-turbo',
-                messages: [
-                    { role: 'system', content: 'You are a helpful assistant.' },
-                    { role: 'user', content: prompt }
-                ]
-            })
-        });
+    await sendReply(`*🤖 AI Response:*\n\n${replyText}\n\n— `);
 
-        const data = await res.json();
-        const reply = data.choices?.[0]?.message?.content;
-
-        await sock.sendMessage(chatId, {
-            text: reply || '⚠️ AI did not return a response.'
-        });
-
-    } catch (err) {
-        console.error('❌ AI request failed:', err);
-        await sock.sendMessage(chatId, {
-            text: `❌ AI request failed: ${err.message}`
-        });
-    }
+  } catch (error) {
+    console.error('❌ Error executing ai:', error);
+    return sendReply('❌ An unexpected error occurred while using AI.\n\n— *BUGS-BOT support tech*');
+  }
 }

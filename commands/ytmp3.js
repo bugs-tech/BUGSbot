@@ -1,46 +1,61 @@
-// commands/ytmp3.js
-
-import ytdl from 'ytdl-core';
-import settings from '../settings.js';
+import axios from 'axios';
+import { sendReply } from '../lib/sendReply.js';
 
 export const name = 'ytmp3';
-export const description = 'Download audio from YouTube video as MP3';
-export const category = 'Download';
+export const description = 'Download YouTube video as MP3';
+export const usage = '.ytmp3 <YouTube URL>';
 
-export async function execute(sock, msg, args, context) {
-  const { senderJid, sendReply } = context;
-  const url = args[0];
-
-  if (!url || !ytdl.validateURL(url)) {
-    await sendReply(senderJid, '❌ Please provide a valid YouTube URL.\n\nUsage: `.ytmp3 <YouTube URL>`');
-    return;
+export async function execute(sock, msg, args) {
+  const url = args[0]?.trim();
+  if (!url || (!url.includes('youtube.com') && !url.includes('youtu.be'))) {
+    return sendReply(
+      sock,
+      msg,
+      '❌ Please provide a valid YouTube link.\n\n📌 Example:\n.ytmp3 https://youtube.com/watch?v=XXXX'
+    );
   }
 
   try {
-    // Get video info to check duration and title
-    const info = await ytdl.getInfo(url);
-    const durationSeconds = parseInt(info.videoDetails.lengthSeconds);
-    const title = info.videoDetails.title;
+    const apiUrl = `https://apis.davidcyriltech.my.id/youtube/mp3?url=${encodeURIComponent(url)}`;
+    const { data } = await axios.get(apiUrl);
 
-    // Limit duration to e.g. 15 minutes (900s)
-    if (durationSeconds > 900) {
-      await sendReply(senderJid, '⚠️ Video is too long. Please choose a video under 15 minutes.');
-      return;
+    if (!data?.result?.downloadUrl) {
+      console.error('ytmp3 API error:', data);
+      return sendReply(sock, msg, '❌ Failed to fetch download link.');
     }
 
-    // Stream audio only, highest quality
-    const stream = ytdl(url, { filter: 'audioonly', quality: 'highestaudio' });
+    const {
+      title,
+      image: thumbnail,
+      downloadUrl: audioUrl
+    } = data.result;
 
-    // Send audio with file name
-    await sock.sendMessage(senderJid, {
-      audio: stream,
-      mimetype: 'audio/mpeg',
-      fileName: `${title}.mp3`,
-      caption: `🎵 *${title}*\n\n*From:* ${settings.botName}`,
-    });
+    const caption = `🎶 *Title:* ${title}
+📥 *Quality:* Unknown
+🎧 *Type:* MP3 Audio`;
 
-  } catch (error) {
-    console.error('❌ ytmp3 error:', error);
-    await sendReply(senderJid, `⚠️ Failed to download audio.\nReason: ${error.message || 'Unknown error'}`);
+    // Send video info with thumbnail
+    await sock.sendMessage(
+      msg.key.remoteJid,
+      {
+        image: { url: thumbnail },
+        caption
+      },
+      { quoted: msg }
+    );
+
+    // Send the audio file
+    await sock.sendMessage(
+      msg.key.remoteJid,
+      {
+        audio: { url: audioUrl },
+        mimetype: 'audio/mp4'
+      },
+      { quoted: msg }
+    );
+
+  } catch (err) {
+    console.error('ytmp3 error:', err.response?.data || err.message);
+    return sendReply(sock, msg, '❌ An error occurred while downloading MP3.\n\n— *BUGS-BOT support tech*');
   }
 }

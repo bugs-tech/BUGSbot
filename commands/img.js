@@ -1,53 +1,43 @@
-import axios from 'axios';
-import settings from '../settings.js';
+// commands/img.js
+import fetch from 'node-fetch';
 
 export const name = 'img';
-export const description = 'Generate an image from text using AI';
+export const description = 'Generate an image using AI';
 export const category = 'AI';
 
 export async function execute(sock, msg, args, context) {
-    const chatId = msg.key.remoteJid;
-    const prompt = args.join(' ');
+  const { sendReply, pushName } = context;
 
-    if (!prompt) {
-        return await sock.sendMessage(chatId, {
-            text: '🖼️ *Usage:* `.img <description>`\n\nExample: `.img A robot sitting on a beach at sunset`'
-        });
+  if (!args.length) {
+    return sendReply('📌 Usage: .img [prompt]\n_Example: .img A futuristic city at sunset_');
+  }
+
+  const prompt = encodeURIComponent(args.join(' '));
+  const apiUrl = `https://api.giftedtech.co.ke/api/ai/fluximg?apikey=gifted&prompt=${prompt}`;
+
+  try {
+    console.log(`📥 img called by ${pushName || 'Unknown'} (${msg.sender}) on ${msg.key.id}`);
+    console.log(`🔍 API URL: ${apiUrl}`);
+
+    const res = await fetch(apiUrl);
+    const json = await res.json();
+
+    console.log('🔍 API Response (img):', JSON.stringify(json, null, 2));
+
+    if (!json?.status || !json?.result) {
+      return sendReply('❌ Failed to generate image. Try again.\n\n— *BUGS-BOT support tech*');
     }
 
-    try {
-        const openaiKey = settings.openaiApiKey;
-        if (!openaiKey) {
-            return await sock.sendMessage(chatId, {
-                text: '⚠️ OpenAI API key not configured in settings.'
-            });
-        }
+    // ✅ FIXED: use msg.key.remoteJid to avoid jidDecode error
+    await sock.sendMessage(msg.key.remoteJid, {
+      image: { url: json.result },
+      caption: `✅ *Prompt:* ${decodeURIComponent(prompt)}\n\n— *BUGS-BOT support tech*`
+    }, { quoted: msg });
 
-        const response = await axios.post('https://api.openai.com/v1/images/generations', {
-            model: 'dall-e-3',
-            prompt: prompt,
-            n: 1,
-            size: '1024x1024'
-        }, {
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${openaiKey}`
-            }
-        });
+    console.log(`✅ Command 'img' executed successfully.`);
 
-        const imageUrl = response.data?.data?.[0]?.url;
-        if (imageUrl) {
-            await sock.sendMessage(chatId, {
-                image: { url: imageUrl },
-                caption: `🧠 *AI Image Generated:*\n_${prompt}_`
-            });
-        } else {
-            throw new Error('No image returned');
-        }
-    } catch (err) {
-        console.error('❌ Image generation failed:', err.message);
-        await sock.sendMessage(chatId, {
-            text: `⚠️ Failed to generate image.\nReason: ${err.message || 'Unknown error'}`
-        });
-    }
+  } catch (error) {
+    console.error('❌ Error executing img:', error);
+    return sendReply('❌ An unexpected error occurred while generating the image.');
+  }
 }

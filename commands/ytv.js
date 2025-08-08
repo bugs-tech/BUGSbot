@@ -1,70 +1,39 @@
-import ytdl from 'ytdl-core';
-import { sendReply } from '../lib/sendReply.js';
-import fs from 'fs';
-import path from 'path';
+import fetch from 'node-fetch';
 
 export const name = 'ytv';
-export const description = 'Download YouTube video';
-export const category = 'Downloader';
-export const usage = '.ytv <YouTube URL>';
+export const description = 'Download YouTube video in low quality (MP4)';
+export const category = 'Media';
 
 export async function execute(sock, msg, args, context) {
-  const { chat } = context;
-  const url = args[0];
+  const { sendReply } = context;
 
-  if (!url || !ytdl.validateURL(url)) {
-    return sendReply(sock, msg, '❌ Please provide a valid YouTube URL.\nExample: `.ytv https://youtu.be/xyz`');
+  if (!args.length) {
+    return sendReply('📌 Usage: .ytv [YouTube URL]\n_Example: .ytv https://youtu.be/60ItHLz5WEA_');
   }
+
+  const url = args[0];
+  const apiUrl = `https://api.giftedtech.co.ke/api/download/ytv?apikey=gifted&url=${encodeURIComponent(url)}`;
 
   try {
-    const info = await ytdl.getInfo(url);
-    const title = info.videoDetails.title;
-    const duration = formatDuration(info.videoDetails.lengthSeconds);
-    const author = info.videoDetails.author.name;
-    const videoUrl = info.videoDetails.video_url;
-    const thumbnail = info.videoDetails.thumbnails?.slice(-1)?.[0]?.url;
+    const res = await fetch(apiUrl);
+    const json = await res.json();
 
-    const videoFormat = ytdl.chooseFormat(info.formats, {
-      quality: '18' // 360p (widely supported and small size)
-    });
+    if (!json?.status || !json?.result?.url) {
+      return sendReply('❌ Failed to download low-quality video. Please try again.\n\n— *BUGS-BOT support tech*');
+    }
 
-    const fileSizeMB = (videoFormat.contentLength / 1024 / 1024).toFixed(2);
+    const video = json.result;
 
-    // Send video info card
-    const caption = `
-🎬 *Title:* ${title}
-🕒 *Duration:* ${duration}
-👤 *Channel:* ${author}
-📦 *Size:* ~${fileSizeMB} MB
-🔗 *URL:* ${videoUrl}
-`.trim();
+    await sock.sendMessage(msg.chat, {
+      video: { url: video.url },
+      mimetype: 'video/mp4',
+      caption: `🎥 *${video.title}*\n📥 Low-quality MP4 downloaded.\n\n— *BUGS-BOT support tech*`
+    }, { quoted: msg });
 
-    await sock.sendMessage(chat, {
-      image: { url: thumbnail },
-      caption
-    });
+    console.log(`📥 .ytv success: ${video.title} (${url})`);
 
-    // Download video
-    const tempPath = path.join('./temp', `${Date.now()}_video.mp4`);
-    const stream = ytdl(url, { quality: '18' }).pipe(fs.createWriteStream(tempPath));
-
-    stream.on('finish', async () => {
-      await sock.sendMessage(chat, {
-        document: fs.readFileSync(tempPath),
-        mimetype: 'video/mp4',
-        fileName: `${title}.mp4`
-      });
-      fs.unlinkSync(tempPath);
-    });
-
-  } catch (err) {
-    console.error('❌ Error in .ytv:', err);
-    return sendReply(sock, msg, '⚠️ Failed to download the YouTube video.');
+  } catch (error) {
+    console.error('❌ Error in .ytv:', error);
+    return sendReply('❌ An unexpected error occurred while downloading the low-quality video.\n\n— *BUGS-BOT support tech*');
   }
-}
-
-function formatDuration(seconds) {
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
 }

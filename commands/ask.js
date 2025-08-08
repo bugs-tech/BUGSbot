@@ -1,51 +1,40 @@
-// commands/ask.js
-
-import axios from 'axios';
-import settings from '../settings.js';
+import fetch from 'node-fetch';
 
 export const name = 'ask';
-export const description = 'Ask AI a question using GPT-4 (OpenAI Key)';
+export const description = 'Ask Gemini AI a question';
 export const category = 'AI';
 
 export async function execute(sock, msg, args, context) {
-    const { senderJid } = context;
-    const prompt = args.join(' ');
+  const { sendReply } = context;
 
-    if (!prompt) {
-        await sock.sendMessage(senderJid, {
-            text: '❓ *Usage:* `.ask <your question>`\n\nExample: `.ask What is quantum computing?`'
-        });
-        return;
+  if (!args.length) {
+    return sendReply('📌 Usage: .ask [your question]\n_Example: .ask What is quantum computing?_');
+  }
+
+  const query = encodeURIComponent(args.join(' '));
+  const apiUrl = `https://api.giftedtech.co.ke/api/ai/geminiai?apikey=gifted&q=${query}`;
+
+  try {
+    console.log(`📥 ask called with query: ${decodeURIComponent(query)}`);
+
+    const res = await fetch(apiUrl);
+    const json = await res.json();
+
+    console.log('🔍 API Response (ask):', json);
+
+    if (!json?.result) {
+      return sendReply('⚠️ Gemini AI did not return a valid response.\n\n— *BUGS-BOT support tech*');
     }
 
-    const apiKey = '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';
-    const endpoint = 'https://api.openai.com/v1/chat/completions';
+    // Remove any "Powered by..." footer from response
+    const cleanResult = json.result
+      .replace(/_?Powered by.*$/i, '') // Removes "Powered by GiftedTech AI" or similar
+      .trim();
 
-    try {
-        const response = await axios.post(
-            endpoint,
-            {
-                model: 'gpt-4',
-                messages: [{ role: 'user', content: prompt }]
-            },
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                }
-            }
-        );
+    await sendReply(`*🧠 Gemini AI Response:*\n\n${cleanResult}\n\n— *BUGS-BOT support tech*`);
 
-        const reply = response.data?.choices?.[0]?.message?.content?.trim();
-        if (reply) {
-            await sock.sendMessage(senderJid, { text: `🤖 *AI Response:*\n\n${reply}` });
-        } else {
-            throw new Error('No content returned from AI');
-        }
-    } catch (err) {
-        console.error('❌ AI request failed:', err.message);
-        await sock.sendMessage(senderJid, {
-            text: `⚠️ Failed to get AI response.\nReason: ${err.message || 'Unknown error'}`
-        });
-    }
+  } catch (error) {
+    console.error('❌ Error executing ask:', error);
+    return sendReply('❌ An unexpected error occurred while using Gemini AI.');
+  }
 }

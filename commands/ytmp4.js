@@ -1,43 +1,51 @@
 // commands/ytmp4.js
-
-import ytdl from 'ytdl-core';
-import settings from '../settings.js';
+import axios from 'axios';
+import { sendReply } from '../lib/sendReply.js';
 
 export const name = 'ytmp4';
-export const description = 'Download video from YouTube as MP4';
-export const category = 'Download';
+export const description = 'Download YouTube video as MP4';
+export const category = 'Downloader';
+export const usage = '.ytmp4 <YouTube URL>';
 
-export async function execute(sock, msg, args, context) {
-  const { senderJid, sendReply } = context;
-  const url = args[0];
-
-  if (!url || !ytdl.validateURL(url)) {
-    await sendReply(senderJid, '❌ Please provide a valid YouTube URL.\n\nUsage: `.ytmp4 <YouTube URL>`');
-    return;
+export async function execute(sock, msg, args) {
+  const query = args[0];
+  if (!query || (!query.includes('youtube.com') && !query.includes('youtu.be'))) {
+    return sendReply(sock, msg, '❌ Usage: .ytmp4 <YouTube video URL>');
   }
 
   try {
-    const info = await ytdl.getInfo(url);
-    const durationSeconds = parseInt(info.videoDetails.lengthSeconds);
-    const title = info.videoDetails.title;
+    const apiUrl = `https://apis.davidcyriltech.my.id/youtube/mp4?url=${encodeURIComponent(query)}`;
+    const { data } = await axios.get(apiUrl);
 
-    if (durationSeconds > 900) {
-      await sendReply(senderJid, '⚠️ Video is too long. Please choose a video under 15 minutes.');
-      return;
+    const result = data.result;
+    if (!result?.url) {
+      return sendReply(sock, msg, '❌ Failed to fetch download link.');
     }
 
-    // Stream highest quality video + audio
-    const stream = ytdl(url, { quality: 'highestvideo', filter: format => format.container === 'mp4' });
+    const caption = `
+╭━━〔 🎬 𝙔𝙏𝙈𝙋𝟰 𝘿𝙊𝙒𝙉𝙇𝙊𝘼𝘿 〕━━⬣
+┃🎵 *Title:* ${result.title}
+┃📺 *Channel:* ${result.channel}
+┃⏱ *Duration:* ${result.duration}
+┃👁 *Views:* ${result.views}
+┃🔗 *URL:* ${query}
+╰━━━⊰ *BUGS-BOT* ⊱━━━━⬣
+`.trim();
 
-    await sock.sendMessage(senderJid, {
-      video: stream,
-      mimetype: 'video/mp4',
-      fileName: `${title}.mp4`,
-      caption: `🎥 *${title}*\n\n*From:* ${settings.botName}`,
-    });
+    // Send thumbnail + caption
+    await sock.sendMessage(msg.key.remoteJid, {
+      image: { url: result.thumbnail },
+      caption
+    }, { quoted: msg });
 
-  } catch (error) {
-    console.error('❌ ytmp4 error:', error);
-    await sendReply(senderJid, `⚠️ Failed to download video.\nReason: ${error.message || 'Unknown error'}`);
+    // Send video file
+    await sock.sendMessage(msg.key.remoteJid, {
+      video: { url: result.url },
+      mimetype: 'video/mp4'
+    }, { quoted: msg });
+
+  } catch (err) {
+    console.error('[YTMP4 ERROR]', err.response?.data || err.message || err);
+    return sendReply(sock, msg, '⚠️ Error fetching MP4. Please try again.');
   }
 }

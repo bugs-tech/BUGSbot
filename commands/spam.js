@@ -21,7 +21,7 @@ export async function execute(sock, msg, args, context) {
     const count = parseInt(args[0]);
     const message = args.slice(1).join(' ');
 
-    if (!count || !message || isNaN(count) || count > 30 || count < 1) {
+    if (!count || !message || isNaN(count) || count > 40 || count < 1) {
         await sock.sendMessage(chatId, {
             text: '❌ Usage: `.spam <count> <message>`\nExample: `.spam 5 Hello!`'
         });
