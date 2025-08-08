@@ -1,4 +1,4 @@
-// handler.js
+// handler.js (Full Update with Notifications and AI Chatbot)
 
 import * as fs from 'fs';
 import path from 'path';
@@ -6,195 +6,254 @@ import os from 'os';
 import chalk from 'chalk';
 import settings from './settings.js';
 import { isAutoLikeEnabled } from './commands/autolike.js';
-import { isAutoLikeStatusEnabled } from './lib/autolikestatus.js';
-import { isAutoTypingEnabled } from './lib/autotyping.js';
-import { isAutoViewStatusEnabled } from './commands/autoviewstatus.js';
-import { isGroupBroadcastEnabled } from './commands/broadcastgroup.js';
+import { isAutoReactEnabled, getRandomEmoji } from './data/features.js';
 import dotenv from 'dotenv';
+import { handleChatbotReply } from './lib/autochatbot.js';
 dotenv.config();
 
 const commands = new Map();
 
-// Track dynamic owners
-export const dynamicOwners = new Set(settings.botOwnerNumbers);
+export const dynamicOwners = new Set(
+  settings.botOwnerNumbers.map(num => num.replace(/\D/g, ''))
+);
 
-// Load commands
+const dbPath = path.join('./data', 'database.json');
+let database = {};
+try {
+  database = JSON.parse(fs.readFileSync(dbPath, 'utf-8'));
+} catch (e) {
+  console.warn('⚠️ Failed to load database.json, using defaults');
+  database = { autoreact: false, autostatusreact: false, owners: [], chatbot: {}, notifications: {} };
+}
+
+function isOwner(jid) {
+  if (!jid) return false;
+  const normalized = jid.replace(/\D/g, '');
+  return (
+    settings.botOwnerNumbers.some(n => n.replace(/\D/g, '') === normalized) ||
+    database.owners.includes(normalized + '@s.whatsapp.net') ||
+    dynamicOwners.has(normalized)
+  );
+}
+
 const commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
 for (const file of commandFiles) {
-    const command = await import(`./commands/${file}`);
-    if (command.name) {
-        commands.set(command.name, command);
-    }
+  const command = await import(`./commands/${file}`);
+  if (command.name) {
+    commands.set(command.name, command);
+  }
 }
 
-// Handle messages
 export async function handleCommand(sock, msg) {
-    const prefix = settings.prefix || '.';
+  const prefix = settings.prefix || '.';
+  if (msg.key.remoteJid === 'status@broadcast') return;
 
-    if (msg.key.remoteJid === 'status@broadcast') return;
+  const fromMe = msg.key.fromMe;
+  const isGroup = msg.key.remoteJid.endsWith('@g.us');
 
-    const fromMe = msg.key.fromMe;
-    const isGroup = msg.key.remoteJid.endsWith('@g.us');
+  let text = '';
+  if (msg.message?.conversation) text = msg.message.conversation;
+  else if (msg.message?.extendedTextMessage?.text) text = msg.message.extendedTextMessage.text;
+  else if (msg.message?.imageMessage?.caption) text = msg.message.imageMessage.caption;
+  else if (msg.message?.videoMessage?.caption) text = msg.message.videoMessage.caption;
+  else if (msg.message?.documentMessage?.caption) text = msg.message.documentMessage.caption;
+  else if (msg.message?.buttonsResponseMessage?.selectedButtonId) text = msg.message.buttonsResponseMessage.selectedButtonId;
+  else if (msg.message?.templateButtonReplyMessage?.selectedId) text = msg.message.templateButtonReplyMessage.selectedId;
+  else if (msg.message) text = '[Non-text message received]';
+  else text = '[Empty message]';
 
-    // Extract text
-    let text = '';
-    if (msg.message?.conversation) text = msg.message.conversation;
-    else if (msg.message?.extendedTextMessage?.text) text = msg.message.extendedTextMessage.text;
-    else if (msg.message?.imageMessage?.caption) text = msg.message.imageMessage.caption;
-    else if (msg.message?.videoMessage?.caption) text = msg.message.videoMessage.caption;
-    else if (msg.message?.documentMessage?.caption) text = msg.message.documentMessage.caption;
-    else if (msg.message?.buttonsResponseMessage?.selectedButtonId) text = msg.message.buttonsResponseMessage.selectedButtonId;
-    else if (msg.message?.templateButtonReplyMessage?.selectedId) text = msg.message.templateButtonReplyMessage.selectedId;
-    else if (msg.message) text = '[Non-text message received]';
-    else text = '[Empty message]';
-
-    // Auto-like
+  if (isAutoReactEnabled()) {
+    const emoji = getRandomEmoji();
     try {
-        if (isAutoLikeEnabled() && !fromMe) {
-            const messageTypesToReact = ['conversation', 'imageMessage', 'stickerMessage', 'videoMessage', 'documentMessage'];
-            const msgType = Object.keys(msg.message || {})[0];
-            if (messageTypesToReact.includes(msgType)) {
-                await sock.sendMessage(msg.key.remoteJid, {
-                    react: {
-                        text: '❤️',
-                        key: msg.key
-                    }
-                });
-            }
-        }
-    } catch (err) {
-        console.error('❌ Auto-like failed:', err);
+      await sock.sendMessage(msg.key.remoteJid, {
+        react: {
+          text: emoji,
+          key: msg.key,
+        },
+      });
+    } catch (e) {
+      console.error('Auto-react error:', e);
     }
+  }
 
-    if (fromMe && !settings.allowSelfCommands && text.startsWith(prefix)) return;
+  if (fromMe && !settings.allowSelfCommands && text.startsWith(prefix)) return;
 
-    const senderName = msg.pushName || msg.key.participant || msg.key.remoteJid || 'Unknown';
-    let groupName = '';
-    if (isGroup && sock.groupMetadata) {
-        try {
-            const metadata = await sock.groupMetadata(msg.key.remoteJid);
-            groupName = metadata.subject;
-        } catch {
-            groupName = '[Unknown Group]';
-        }
-    }
-
-    const nameColored = chalk.yellow(senderName);
-    const sourceInfo = isGroup ? chalk.blueBright(`👥 ${groupName}`) : (fromMe ? chalk.gray('🤖 Self Chat') : chalk.magenta('👤 Private Chat'));
-    const messageColored = chalk.green(text);
-    console.log(`💬 ${nameColored} (${sourceInfo}): ${messageColored}`);
-
-    if (!text.startsWith(prefix)) return;
-
-    const args = text.slice(prefix.length).trim().split(/\s+/);
-    const commandName = args.shift().toLowerCase();
-
-    const command = commands.get(commandName);
-    if (!command) return;
-
-    const senderJid = isGroup ? msg.key.participant || msg.participant : msg.key.remoteJid;
-    const replyJid = isGroup ? msg.key.remoteJid : senderJid;
-
-    let resolvedJid = senderJid;
+  const senderName = msg.pushName || msg.key.participant || msg.key.remoteJid || 'Unknown';
+  let groupName = '';
+  if (isGroup && sock.groupMetadata) {
     try {
-        const resolved = await sock.onWhatsApp(senderJid);
-        if (resolved?.[0]?.jid) resolvedJid = resolved[0].jid;
-    } catch (err) {
-        console.warn('⚠️ Could not resolve JID:', err);
+      const metadata = await sock.groupMetadata(msg.key.remoteJid);
+      groupName = metadata.subject;
+    } catch {
+      groupName = '[Unknown Group]';
     }
+  }
 
-    const normalize = num => num.replace(/\D/g, '').replace(/^0+/, '');
-    const normalizedSender = normalize(resolvedJid.split('@')[0]);
+  const nameColored = chalk.yellow(senderName);
+  const sourceInfo = isGroup ? chalk.blueBright(`👥 ${groupName}`) : (fromMe ? chalk.gray('🤖 Self Chat') : chalk.magenta('👤 Private Chat'));
+  const messageColored = chalk.green(text);
+  console.log(`💬 ${nameColored} (${sourceInfo}): ${messageColored}`);
 
-    const isBotOwner = [...dynamicOwners].some(owner => {
-        const normOwner = normalize(owner.split('@')[0] || owner);
-        return normalizedSender.endsWith(normOwner);
+  if (!text.startsWith(prefix)) {
+    const senderJid = msg.key.remoteJid;
+    const normalized = senderJid.replace(/\D/g, '');
+    const chatbotEnabled = database.chatbot?.[normalized];
+    if (!isGroup && chatbotEnabled) {
+      await handleChatbotReply(sock, msg, text, normalized);
+    }
+    return;
+  }
+
+  const args = text.slice(prefix.length).trim().split(/\s+/);
+  const commandName = args.shift().toLowerCase();
+  const command = commands.get(commandName);
+  if (!command) return;
+
+  const rawSenderJid = isGroup ? msg.key.participant : (msg.key.fromMe ? sock.user.id : msg.key.remoteJid);
+  let resolvedJid = rawSenderJid;
+  try {
+    const resolved = await sock.onWhatsApp(rawSenderJid);
+    if (resolved?.[0]?.jid) {
+      resolvedJid = resolved[0].jid;
+    }
+  } catch (err) {
+    console.warn('⚠️ Could not resolve JID:', err);
+  }
+
+  const normalize = num => num.replace(/\D/g, '');
+  const normalizedSender = normalize(resolvedJid);
+  const isBotOwner =
+    settings.botOwnerNumbers.some(n => normalize(n) === normalizedSender) ||
+    database.owners.includes(resolvedJid) ||
+    dynamicOwners.has(normalizedSender);
+
+  if (fromMe && !dynamicOwners.has(normalizedSender)) {
+    dynamicOwners.add(normalizedSender);
+    console.log(`🆕 Added ${normalizedSender} as dynamic owner`);
+  }
+
+  const sessionPath = path.join('sessions', 'cred.js');
+  if (!fs.existsSync(sessionPath)) {
+    await sock.sendMessage(msg.key.remoteJid, {
+      text: `❌ *Access Denied*\n\nYour session is not active.`,
     });
+    return;
+  }
 
-    if (fromMe && !dynamicOwners.has(resolvedJid)) {
-        dynamicOwners.add(resolvedJid);
-        console.log(`🆕 Added ${resolvedJid} as dynamic owner`);
-    }
+  const banPath = './data/banned.json';
+  if (fs.existsSync(banPath)) {
+    const banned = JSON.parse(fs.readFileSync(banPath));
+    if (Array.isArray(banned) && banned.includes(resolvedJid)) return;
+  }
 
-    // Block non-owners if no session
-    const sessionPath = path.join('sessions', 'cred.js');
-    if (!fs.existsSync(sessionPath)) {
-        await sock.sendMessage(replyJid, { text: `❌ *Access Denied*\n\nYour session is not active.` });
-        return;
-    }
+  console.log(chalk.cyan(`📥 ${commandName} called by ${senderName} (${normalizedSender}) on ${os.hostname()}`));
 
-    // Ban check
-    const banPath = './data/banned.json';
-    if (fs.existsSync(banPath)) {
-        const banned = JSON.parse(fs.readFileSync(banPath));
-        const userJid = isGroup ? msg.key.participant : msg.key.remoteJid;
-        if (Array.isArray(banned) && banned.includes(userJid)) return;
-    }
+  if (settings.autoTyping) {
+    await sock.sendPresenceUpdate('composing', msg.key.remoteJid);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
 
-    console.log(chalk.cyan(`📥 ${commandName} called by ${senderName} (${normalizedSender}) on ${os.hostname()}`));
+  const mentionedJid = (
+    msg.message?.extendedTextMessage?.contextInfo?.mentionedJid ||
+    msg.message?.contextInfo?.mentionedJid ||
+    []
+  );
 
-    // Auto typing
-    if (isAutoTypingEnabled()) {
-        await sock.sendPresenceUpdate('composing', msg.key.remoteJid);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-    }
+  if (msg.message?.extendedTextMessage?.contextInfo?.quotedMessage) {
+    args.quoted = {
+      key: {
+        remoteJid: msg.message.extendedTextMessage.contextInfo.remoteJid || msg.key.remoteJid,
+        id: msg.message.extendedTextMessage.contextInfo.stanzaId,
+        fromMe: false,
+        participant: msg.message.extendedTextMessage.contextInfo.participant
+      },
+      message: msg.message.extendedTextMessage.contextInfo.quotedMessage
+    };
+  }
 
-    // Extract mentioned users
-    const mentionedJid = (
-        msg.message?.extendedTextMessage?.contextInfo?.mentionedJid ||
-        msg.message?.contextInfo?.mentionedJid ||
-        []
-    );
-
-    // Reply helper
-    async function sendReply(jid, replyText, extra = {}) {
-        const tag = '\n\n— *BUGS-BOT support tech*';
-        return sock.sendMessage(jid, { text: replyText + tag, ...extra });
-    }
+  async function sendReply(replyText, extra = {}) {
+    const jid = msg.key.remoteJid || msg.key.participant || msg.participant;
+    const tag = '\n\n— *BUGS-BOT support tech*';
 
     try {
-        // Restrict gcbroadcast
-        if (commandName === 'gcbroadcast') {
-            const metadata = await sock.groupMetadata(msg.key.remoteJid);
-            const senderIsAdmin = metadata.participants?.find(p => p.id === resolvedJid && (p.admin === 'admin' || p.admin === 'superadmin'));
-            if (!senderIsAdmin) {
-                return sendReply(replyJid, '❌ *Only group admins can use this command.*');
-            }
-        }
-
-        // ✅ Execute command with full context
-        await command.execute(sock, msg, args, {
-            senderJid,
-            senderNumber: normalizedSender,
-            isGroup,
-            isBotOwner,
-            replyJid,
-            mentionedJid,
-            sendReply
-        });
-
-        console.log(chalk.greenBright(`✅ Command '${commandName}' executed successfully.`));
-    } catch (err) {
-        console.error(chalk.bgRed.white(`❌ Error executing ${commandName}:`), err);
-        await sock.sendMessage(replyJid, {
-            text: `⚠️ An error occurred while executing *${commandName}*.`
-        });
+      return await sock.sendMessage(jid, { text: replyText + tag, ...extra });
+    } catch (e) {
+      console.error('❌ sendReply failed:', e);
     }
+  }
+
+  try {
+    await command.execute(sock, msg, args, {
+      senderJid: resolvedJid,
+      senderNumber: normalizedSender,
+      isGroup,
+      isBotOwner,
+      replyJid: msg.key.remoteJid,
+      mentionedJid,
+      sendReply,
+      isOwner: isOwner(resolvedJid),
+    });
+    console.log(chalk.greenBright(`✅ Command '${commandName}' executed successfully.`));
+  } catch (err) {
+    console.error(chalk.bgRed.white(`❌ Error executing ${commandName}:`), err);
+    await sock.sendMessage(msg.key.remoteJid, {
+      text: `⚠️ An error occurred while executing *${commandName}*.`
+    }, {
+      quoted: msg
+    });
+  }
 }
 
-// Auto-react to statuses
 export async function handleStatus(sock, msg) {
-    if (msg.key.remoteJid === 'status@broadcast' && (isAutoLikeStatusEnabled() || isAutoViewStatusEnabled())) {
-        try {
-            await sock.sendMessage('status@broadcast', {
-                react: {
-                    text: '❤️',
-                    key: msg.key
-                }
-            });
-            console.log(`✅ Auto-reacted to a status.`);
-        } catch (err) {
-            console.error('❌ Failed to auto-react to status:', err);
-        }
+  if (msg.key.remoteJid === 'status@broadcast') {
+    const senderJid = msg.key.participant || '';
+    if (database.autostatusreact && isOwner(senderJid)) {
+      try {
+        const randomEmojis = ['❤️', '😂', '👍', '🔥', '😊', '😎', '💯', '🤖'];
+        const reactEmoji = randomEmojis[Math.floor(Math.random() * randomEmojis.length)];
+        await sock.sendMessage('status@broadcast', {
+          react: {
+            text: reactEmoji,
+            key: msg.key
+          }
+        });
+        console.log(`✅ Auto-reacted to a status with ${reactEmoji}`);
+      } catch (err) {
+        console.error('❌ Failed to auto-react to status:', err);
+      }
     }
+  }
+}
+
+export async function handleGroupParticipantUpdate(sock, update) {
+  const { id, participants, action } = update;
+  if (!database.notifications?.[id]) return;
+
+  const metadata = await sock.groupMetadata(id);
+  const groupName = metadata.subject;
+  const date = new Date().toLocaleString('en-GB');
+  const memberCount = metadata.participants.length;
+
+  for (const user of participants) {
+    let userName = user;
+    try {
+      const [userData] = await sock.onWhatsApp(user);
+      if (userData?.notify) userName = userData.notify;
+    } catch {}
+
+    const box = [
+      '╭── 🎉 Group Notification',
+      `│ 🏷️ Action: *${action === 'add' ? 'Join' : 'Leave'}*`,
+      `│ 👤 User: @${user.replace(/[^0-9]/g, '')}`,
+      `│ 📅 Date: ${date}`,
+      `│ 👥 Group: ${groupName}`,
+      `│ 🔢 Members: ${memberCount}`,
+      '╰───────────────────────'
+    ].join('\n');
+
+    await sock.sendMessage(id, {
+      text: box,
+      mentions: [user]
+    });
+  }
 }

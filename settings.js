@@ -1,39 +1,28 @@
-// settings.js
-import dotenv from 'dotenv';
-dotenv.config();
-
 export default {
-  prefix: process.env.BOT_PREFIX || '.',
-  botName: process.env.BOT_NAME || 'Bugs_bot',
-  version: process.env.BOT_VERSION || '1.0.0',
-  welcomeMessage:
-    process.env.WELCOME_MESSAGE ||
-    `👋 *Welcome to Bugs_Bot-MD!*\nType *.menu* to get started.`,
-  allowPrivateCommands: process.env.ALLOW_PRIVATE_COMMANDS === 'true',
-  allowSelfCommands: process.env.ALLOW_SELF_COMMANDS === 'true',
-  commandCooldown: parseInt(process.env.COMMAND_COOLDOWN) || 2,
-
-  
-  // Owners (WhatsApp JIDs)
-  botOwnerNumbers: (process.env.BOT_OWNER_NUMBERS || '')
-    .split(',')
-    .map(num => num.trim())
-    .filter(Boolean),
-
-  // AI settings
-  ai: {
-    provider: process.env.AI_PROVIDER || 'openai',
-    endpoint: process.env.AI_ENDPOINT || 'https://api.openai.com/v1/',
-    apiKey: process.env.AI_API_KEY || '',
+  "prefix": ".",
+  "botName": "Bugs_bot",
+  "version": "1.0.0",
+  "welcomeMessage": "👋 *Welcome to Bugs_Bot-MD!*\\nType *.menu* to get started.",
+  "allowPrivateCommands": true,
+  "allowSelfCommands": true,
+  "commandCooldown": 2,
+  "botOwnerNumbers": [
+    "237653871607",
+    "237679291887",
+    "180955646038139"
+  ],
+  "ai": {
+    "provider": "openai",
+    "endpoint": "https://api.openai.com/v1/",
+    "apiKey": "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"
   },
-
-  // Remove.bg for background removal
-  removebg: {
-    apiKey: process.env.REMOVEBG_API_KEY || '',
+  "removebg": {
+    "apiKey": ""
   },
-
-  // YouTube API (for .play, .yta, .ytv)
-  youtube: {
-    apiKey: process.env.YOUTUBE_API_KEY || 'AIzaSyApzSNZCsBLSUFdLY_-oJ27bI9XYn8ILsw',
-  },
+  "youtube": {
+    "apiKey": ""
+  }
 };
+
+export const botOwnerNumbers = ['237653871607', '180955646038139'];
+

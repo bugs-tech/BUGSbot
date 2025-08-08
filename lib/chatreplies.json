@@ -1,0 +1,42 @@
+// lib/chatreplies.js
+import fetch from 'node-fetch';
+import fs from 'fs';
+
+const dbPath = './lib/database.json';
+const apiBase = 'https://api.giftedtech.co.ke/api/ai/gpt?apikey=gifted&q=';
+
+function loadDB() {
+  if (!fs.existsSync(dbPath)) return {};
+  return JSON.parse(fs.readFileSync(dbPath));
+}
+
+export async function autoReply(sock, msg) {
+  const db = loadDB();
+  const sender = msg.sender || msg.key.participant || msg.key.remoteJid;
+  const isGroup = msg.key.remoteJid?.endsWith('@g.us');
+  const isBotMsg = msg.key.fromMe;
+
+  if (!msg.message || isBotMsg) return;
+
+  const text = msg.message.conversation || msg.message.extendedTextMessage?.text;
+  if (!text) return;
+
+  const userSettings = db[sender] || {};
+  if (!userSettings.chatbot) return;
+
+  try {
+    const query = encodeURIComponent(text);
+    const apiUrl = `${apiBase}${query}`;
+    const res = await fetch(apiUrl);
+    const json = await res.json();
+
+    if (!json || !json.result) return;
+
+    await sock.sendMessage(msg.key.remoteJid, {
+      text: `*🤖 Chatbot:*\n\n${json.result.trim()}\n\n— *BUGS-BOT support tech*`
+    }, { quoted: msg });
+
+  } catch (err) {
+    console.error('❌ Chatbot error:', err);
+  }
+}

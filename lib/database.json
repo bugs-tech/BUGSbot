@@ -1,0 +1,15 @@
+{
+  "chatbot": {
+    "enabled": true,
+    "180955646038139@lid": true,
+    "237653871607@s.whatsapp.net": true,
+    "237653871607": false
+  },
+  "180955646038139@lid": {
+    "chatbot": true
+  },
+    
+  "notifGroups": {}
+	
+
+}
