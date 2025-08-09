@@ -1,35 +1,48 @@
-// commands/listonline.js
-
 export const name = 'listonline';
-export const description = 'List online members in the group';
-export const usage = '.listonline';
 
-export async function execute(sock, msg, args, { isGroup, replyJid, sendReply, getName }) {
-  if (!isGroup) return sendReply(replyJid, '❌ This command can only be used in groups.');
+export async function execute(sock, msg, args, context) {
+  const { isGroup, sendReply, getName, presenceMap, replyJid } = context;
 
-  const groupId = msg.key.remoteJid;
-  const metadata = await sock.groupMetadata(groupId);
-  const participants = metadata.participants;
+  if (!isGroup) {
+    await sendReply('This command can only be used in groups.');
+    return;
+  }
 
-  const onlineMembers = [];
+  try {
+    // Get group metadata
+    const metadata = await sock.groupMetadata(replyJid);
+    const participants = metadata.participants;
 
-  for (const p of participants) {
-    try {
-      const presence = await sock.presenceSubscribe(p.id);
-      if (presence?.lastSeen || presence?.isOnline) {
-        const name = await getName(p.id);
-        onlineMembers.push(`- @${name || p.id.split('@')[0]}`);
-      }
-    } catch (e) {
-      console.warn(`⚠️ Could not check presence of ${p.id}`);
+    // Filter participants by online presence
+    // presenceMap stores presence by jid with a structure like { id: jid, type: "available" or "unavailable", lastKnownPresence: ... }
+    // Adjust according to your presence update structure, assuming 'type' indicates online/offline
+
+    const onlineUsers = participants.filter(p => {
+      const presence = presenceMap.get(p.id || p.jid || p.user) || presenceMap.get(p.jid);
+      // presence?.type === 'available' means user is online
+      // Sometimes presence event can have 'lastKnownPresence' or 'presence' field — adjust if needed
+      return presence && (presence.type === 'available' || presence.lastKnownPresence === 'available');
+    });
+
+    if (onlineUsers.length === 0) {
+      await sendReply('No group members are online right now.');
+      return;
     }
-  }
 
-  if (onlineMembers.length === 0) {
-    return sendReply(replyJid, '📭 No online members found.');
-  }
+    // Build mention list and message text
+    let message = `🟢 *Online Members (${onlineUsers.length}):*\n\n`;
+    const mentions = [];
 
-  await sendReply(replyJid, `🟢 *Online Members:*\n${onlineMembers.join('\n')}`, {
-    mentions: participants.map(p => p.id),
-  });
+    for (const user of onlineUsers) {
+      const userJid = user.id || user.jid || user.user;
+      const name = await getName(userJid) || userJid.split('@')[0];
+      message += `- @${userJid.split('@')[0]} (${name})\n`;
+      mentions.push(userJid);
+    }
+
+    await sock.sendMessage(replyJid, { text: message, mentions });
+  } catch (e) {
+    console.error('❌ Error in listonline:', e);
+    await sendReply('Failed to get online members.');
+  }
 }

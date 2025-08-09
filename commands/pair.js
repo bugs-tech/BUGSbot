@@ -5,17 +5,29 @@ export const name = 'pair';
 export const description = 'Generate a pairing code for a given number';
 export const category = 'utility';
 
-const pairingsPath = './data/pairings.json';
+const pairingsPath = path.join('./data', 'pairings.json');
 
 function loadPairings() {
-  if (fs.existsSync(pairingsPath)) {
-    return JSON.parse(fs.readFileSync(pairingsPath));
+  try {
+    if (!fs.existsSync(pairingsPath)) {
+      fs.writeFileSync(pairingsPath, '{}', 'utf8');
+      return {};
+    }
+    const raw = fs.readFileSync(pairingsPath, 'utf8');
+    if (!raw) return {};
+    return JSON.parse(raw);
+  } catch (err) {
+    console.error('Error loading pairings:', err);
+    return {};
   }
-  return {};
 }
 
 function savePairings(data) {
-  fs.writeFileSync(pairingsPath, JSON.stringify(data, null, 2));
+  try {
+    fs.writeFileSync(pairingsPath, JSON.stringify(data, null, 2), 'utf8');
+  } catch (err) {
+    console.error('Error saving pairings:', err);
+  }
 }
 
 function generateCode() {
@@ -25,22 +37,24 @@ function generateCode() {
 }
 
 export async function execute(sock, msg, args, context) {
-  const { senderJid, sendReply } = context;
+  // Use the remoteJid (chat id) to send reply in the chat where command was called
+  const { sendReply } = context;
+  const chatId = msg.key.remoteJid;
 
   if (args.length !== 1 || !/^\d{8,15}$/.test(args[0])) {
-    return sendReply(senderJid, '❌ Invalid format.\nUsage: *.pair 237XXXXXXXXX*');
+    return sendReply(`❌ Invalid format.\nUsage: *.pair 237XXXXXXXXX*`, { jid: chatId });
   }
 
   const phoneNumber = args[0];
   const pairings = loadPairings();
 
   if (pairings[phoneNumber]) {
-    return sendReply(senderJid, `🔑 Pairing code for *${phoneNumber}* already exists:\n\n*${pairings[phoneNumber]}*`);
+    return sendReply(`🔑 Pairing code for *${phoneNumber}* already exists:\n\n*${pairings[phoneNumber]}*`, { jid: chatId });
   }
 
   const code = generateCode();
   pairings[phoneNumber] = code;
   savePairings(pairings);
 
-  return sendReply(senderJid, `✅ Pairing code for *${phoneNumber}*:\n\n*${code}*\n\nUse this code in your bot's panel or client to complete the connection.`);
+  return sendReply(`✅ Pairing code for *${phoneNumber}*:\n\n*${code}*\n\nUse this code in your bot's panel or client to complete the connection.`, { jid: chatId });
 }

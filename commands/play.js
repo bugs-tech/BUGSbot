@@ -27,7 +27,7 @@ export async function execute(sock, msg, args) {
 ┃⏱ *Duration:* ${result.duration?.timestamp || result.timestamp || 'Unknown'}
 ┃👁 *Views:* ${result.views ? Number(result.views).toLocaleString() : 'Unknown'}
 ┃🔗 *URL:* ${videoUrl}
-╰━━━⊰ BUGS BOT v2 ⊱━━━━⬣
+╰━━━⊰ BUGS BOT v1 ⊱━━━━⬣
     `.trim();
 
     await sock.sendMessage(msg.key.remoteJid, {
@@ -38,14 +38,19 @@ export async function execute(sock, msg, args) {
     // 3. Download audio using GiftedTech YTA API
     const downloadApi = `https://api.giftedtech.co.ke/api/download/yta?apikey=gifted&url=${encodeURIComponent(videoUrl)}`;
     const downloadResp = await axios.get(downloadApi);
-    const audioUrl = downloadResp.data.result?.url;
+
+    // Log full response for debug (remove later)
+    console.log('Audio download API response:', downloadResp.data);
+
+    // Fix here: use download_url (underscore)
+    const audioUrl = downloadResp.data.result?.download_url;
 
     if (!audioUrl) return sendReply(sock, msg, '❌ Failed to fetch audio download link.');
 
     // 4. Send audio file
     await sock.sendMessage(msg.key.remoteJid, {
       audio: { url: audioUrl },
-      mimetype: 'audio/mp4'
+      mimetype: 'audio/mpeg'
     }, { quoted: msg });
 
   } catch (err) {

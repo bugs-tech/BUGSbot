@@ -3,6 +3,7 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import settings from '../settings.js';
+import { sendReply } from '../lib/sendReply.js';  // <-- Import sendReply here
 
 const botName = '🔥 BUGS-BOT 🔥';
 
@@ -17,15 +18,16 @@ const ownerCommands = [
 ];
 const groupCommands = [
   'promote', 'demote', 'kick','lock','unlock', 'mute', 'antilink', 'grouplock','gcbroadcast',
-  'setwelcome', 'tagall','ban','warn','listonline','welcome','unmute',
-    'clearwarn','gcbroadcast'
+  'setwelcome', 'tagall','ban','warn','listonline','welcome','unmute','tagadmin',
+  'clearwarn','gcbroadcast'
 ];
 const generalCommands = ['ping', 'menu','echo','about','joke','roll','owner','repo','whoami'];
 const gameCommands = ['rps','ttt','ngg','hangman','wordscramble'];
 const imageCommands = ['toimg','blur','rotate','sticker','invert','greyscale','removebg'];
-const downloadCommands = ['apkdl','play','song','yta','ytv','ytdl','ytmp3','ytmp4'];
-const aiCommands = ['ai', 'ask','chat','img','gimg','gimg1','translate'];
+const downloadCommands = ['apkdl','play','song','ttdl','yta','ytv','ytdl','ytmp3','ytmp4','facedl','spotdl'];
+const aiCommands = ['ai', 'ask','chat','gimg','gimg1','translate'];
 const funCommands = ['bomb','crash','lag','spam'];
+const stalkCommands = ['igs','igs1','tts','tts1','ips','ghs','npms','wcs'];
 
 // RAM usage info
 function getRamUsage() {
@@ -41,13 +43,6 @@ function getSpeedMs() {
   execSync('node -v');
   const end = Date.now();
   return ((end - start) / 1000).toFixed(4) + 's';
-}
-
-// Reply helper
-async function sendReply(sock, msg, text, extra = {}) {
-  const chatId = msg.key.remoteJid;
-  const footer = '\n\n— *BUGS-BOT support tech*';
-  await sock.sendMessage(chatId, { text: text + footer, ...extra });
 }
 
 export const name = 'menu';
@@ -72,12 +67,14 @@ export async function execute(sock, msg, args) {
   const generalCmdsText = generalCommands.map(cmd => `│★ ${cmd}`).join('\n');
   const gameCmdsText = gameCommands.map(cmd => `│★ ${cmd}`).join('\n');
   const funCmdsText = funCommands.map(cmd => `│★ ${cmd}`).join('\n');
+  const stalkCmdsText = stalkCommands.map(cmd => `│★ ${cmd}`).join('\n');
 
-  const totalCommands = ownerCommands.length + groupCommands.length + gameCommands.length +funCommands.length
-    generalCommands.length + downloadCommands.length + imageCommands.length + aiCommands.length;
+  const totalCommands = ownerCommands.length + groupCommands.length + gameCommands.length + funCommands.length +
+    generalCommands.length + downloadCommands.length + imageCommands.length + aiCommands.length + stalkCommands.length;
 
+  // Menu text without channel link
   const menuText = `
-━━━━━《 ${botName} \n MENU 》━━━━━
+━━━━━《 ${botName}  MENU 》━━━━━
 ┃★╭──────────────
 ┃★┃• ᴜꜱᴇʀ : ${pushName}
 ┃★┃• ᴍᴏᴅᴇ : Public
@@ -111,10 +108,17 @@ ${gameCmdsText}
 ┣━━❍「 *FUN* 」❍
 ${funCmdsText}
 
+┣━━❍「 *STALK* 」❍
+${stalkCmdsText}
+
 ┣━━❍「 *GENERAL* 」❍
 ${generalCmdsText}
 ╰━━━━━━━━━━━━━━━━━━━━━━━▣
 `.trim();
+
+  // Footer with button-style view channel (like your example image)
+  const footer = '© BUGS-BOT | View Channel';
+  const buttonUrl = 'https://whatsapp.com/channel/0029Vb5p1DHI7Be7UmI7BW0f';
 
   try {
     let imageBuffer = null;
@@ -133,9 +137,30 @@ ${generalCmdsText}
     if (imageBuffer) {
       await sock.sendMessage(chatId, {
         image: imageBuffer,
-        caption: menuText
+        caption: menuText,
+        footer: footer,
+        buttons: [{
+          buttonId: 'viewchannel',
+          buttonText: { displayText: 'View Channel' },
+          type: 1
+        }],
+        headerType: 4,
+        contextInfo: {
+          forwardingScore: 100,
+          isForwarded: true,
+          externalAdReply: {
+            showAdAttribution: true,
+            mediaType: 2,
+            title: 'BUGS-BOT Channel',
+            body: 'Click below to join',
+            thumbnail: imageBuffer,
+            mediaUrl: buttonUrl,
+            sourceUrl: buttonUrl
+          }
+        }
       });
     } else {
+      // Fallback: send as simple text reply using sendReply
       await sendReply(sock, msg, menuText);
     }
   } catch (err) {
