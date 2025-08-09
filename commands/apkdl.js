@@ -14,24 +14,24 @@ export async function execute(sock, msg, args) {
     const { data } = await axios.get(apiUrl);
     const result = data.result;
 
-    if (!result || !result.name || !result.url) {
+    if (!result || !result.appname || !result.download_url) {
       return sendReply(sock, msg, `❌ APK not found for *${query}*.`);
     }
 
     const caption = `📱 *APK Downloading:*\n
-🔹 *Name:* ${result.name}
-🔹 *Size:* ${result.size || 'Unknown'}
-🔹 *Version:* ${result.version || 'Unknown'}
-🔗 *Link:* ${result.url}`.trim();
+🔹 *Name:* ${result.appname}
+🔹 *Developer:* ${result.developer || 'Unknown'}
+🔹 *MIME Type:* ${result.mimetype || 'Unknown'}
+🔗 *Download Link:* ${result.download_url}`.trim();
 
     // Send app info with reply
     await sendReply(sock, msg, caption);
 
-    // Send the APK file directly
+    // Send the APK file document from URL
     await sock.sendMessage(msg.key.remoteJid, {
-      document: { url: result.url },
-      mimetype: 'application/vnd.android.package-archive',
-      fileName: `${result.name || 'app'}.apk`
+      document: { url: result.download_url },
+      mimetype: result.mimetype || 'application/vnd.android.package-archive',
+      fileName: `${result.appname || 'app'}.apk`
     }, { quoted: msg });
 
   } catch (err) {
