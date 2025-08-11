@@ -21,7 +21,7 @@ try {
   database = JSON.parse(fs.readFileSync(dbPath, 'utf-8'));
 } catch (e) {
   console.warn('⚠️ Failed to load database.json, using defaults');
-  database = { autoreact: false, autostatusreact: false, owners: [], chatbot: { enabled: false }, notifications: {} };
+  database = { autoreact: false, autostatusreact: false, owners: [], notifications: {} };
 }
 
 function isOwner(jid) {
@@ -45,40 +45,11 @@ for (const file of commandFiles) {
 // PRESENCE MAP to track users' online presence
 const presenceMap = new Map();
 
-// Centralized sendReply function that appends WhatsApp channel link + signature
-export async function sendReply(sock, msg, replyText, extra = {}) {
-  const channelLink = ' ';
-  const signature = '\n\n— *BUGS-BOT support tech*';
-  const jid = msg.key.remoteJid || msg.key.participant || msg.participant;
-
-  try {
-    return await sock.sendMessage(jid, {
-      text: replyText + channelLink + signature,
-      ...extra
-    }, {
-      quoted: msg
-    });
-  } catch (e) {
-    console.error('❌ sendReply failed:', e);
-  }
-}
-
-// Helper: handle chatbot reply via API
-async function handleChatbotReply(sock, msg, text) {
-  try {
-    const url = `https://apis.davidcyriltech.my.id/ai/chatbot?query=${encodeURIComponent(text)}`;
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`API status ${response.status}`);
-
-    const data = await response.json();
-    const reply = data?.result || data?.response || 'Sorry, I could not process that.';
-
-    // Use sendReply here instead of direct sock.sendMessage
-    await sendReply(sock, msg, reply);
-  } catch (err) {
-    console.error('Chatbot API error:', err);
-  }
-}
+// The 'sock' object should be passed into init or you should register this somewhere globally where 'sock' is available
+// Here is an example you might add after sock is connected (adjust if needed):
+// sock.ev.on('presence-update', update => {
+//   presenceMap.set(update.id, update);
+// });
 
 export async function handleCommand(sock, msg) {
   // Listen presence updates here on first command for example (ensure you do this once in your app startup)
@@ -140,20 +111,11 @@ export async function handleCommand(sock, msg) {
   const messageColored = chalk.green(text);
   console.log(`💬 ${nameColored} (${sourceInfo}): ${messageColored}`);
 
-  // === CHATBOT GLOBAL TOGGLE LOGIC ===
-  if (!text.startsWith(prefix) && !isGroup) {
-    const chatbotGloballyEnabled = database.chatbot?.enabled;
-    if (chatbotGloballyEnabled) {
-      await handleChatbotReply(sock, msg, text);
-      return;
-    } else {
-      console.log(`[DEBUG] Chatbot is OFF globally. No reply sent for ${msg.key.remoteJid}`);
-      return;
-    }
-  }
-  // === END CHATBOT GLOBAL TOGGLE LOGIC ===
+  // Removed chatbot global toggle block here
 
   // Parse command and args
+  if (!text.startsWith(prefix)) return; // no prefix, no command
+
   const args = text.slice(prefix.length).trim().split(/\s+/);
   const commandName = args.shift().toLowerCase();
   const command = commands.get(commandName);
@@ -184,7 +146,9 @@ export async function handleCommand(sock, msg) {
 
   const sessionPath = path.join('sessions', 'cred.js');
   if (!fs.existsSync(sessionPath)) {
-    await sendReply(sock, msg, `❌ *Access Denied*\n\nYour session is not active.`);
+    await sock.sendMessage(msg.key.remoteJid, {
+      text: `❌ *Access Denied*\n\nYour session is not active.`,
+    });
     return;
   }
 
@@ -219,6 +183,17 @@ export async function handleCommand(sock, msg) {
     };
   }
 
+  async function sendReply(replyText, extra = {}) {
+    const jid = msg.key.remoteJid || msg.key.participant || msg.participant;
+    const tag = '\n\n— *BUGS-BOT support tech*';
+
+    try {
+      return await sock.sendMessage(jid, { text: replyText + tag, ...extra });
+    } catch (e) {
+      console.error('❌ sendReply failed:', e);
+    }
+  }
+
   async function getName(jid) {
     try {
       const contacts = await sock.onWhatsApp(jid);
@@ -239,15 +214,19 @@ export async function handleCommand(sock, msg) {
       isBotOwner,
       replyJid: msg.key.remoteJid,
       mentionedJid,
-      sendReply,  // Pass sendReply here
+      sendReply,
       isOwner: isOwner(resolvedJid),
       getName,
-      presenceMap,
+      presenceMap,  // presence info for commands to use
     });
     console.log(chalk.greenBright(`✅ Command '${commandName}' executed successfully.`));
   } catch (err) {
     console.error(chalk.bgRed.white(`❌ Error executing ${commandName}:`), err);
-    await sendReply(sock, msg, `⚠️ An error occurred while executing *${commandName}*.`);
+    await sock.sendMessage(msg.key.remoteJid, {
+      text: `⚠️ An error occurred while executing *${commandName}*.`
+    }, {
+      quoted: msg
+    });
   }
 }
 
