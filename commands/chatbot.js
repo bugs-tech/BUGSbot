@@ -1,16 +1,36 @@
-// commands/chatbot.js
-import { toggleChatbot } from '../lib/autochatbot.js';
+import fs from 'fs';
+import path from 'path';
 
 export const name = 'chatbot';
-export async function execute(sock, msg, args, { sendReply, senderNumber }) {
-  const toggle = args[0]?.toLowerCase();
 
-  if (!['on', 'off'].includes(toggle)) {
-    return sendReply(`⚙️ Usage: .chatbot on/off`);
+export async function execute(sock, msg, args, context) {
+  const { sendReply, isBotOwner, database } = context;
+
+  if (!isBotOwner) {
+    await sendReply(sock, msg, '❌ Only the bot owner can toggle the chatbot.');
+    return;
   }
 
-  const state = toggle === 'on';
-  toggleChatbot(senderNumber, state);
+  if (!args.length) {
+    await sendReply(sock, msg, `❌ Usage: ${context.prefix || '.'}chatbot <on|off>`);
+    return;
+  }
 
-  await sendReply(`🤖 Chatbot has been *${state ? 'enabled' : 'disabled'}* for your private messages.`);
+  const choice = args[0].toLowerCase();
+  if (choice === 'on') {
+    database.chatbot.enabled = true;
+    saveDatabase(database);
+    await sendReply(sock, msg, '✅ Chatbot is now *ON* for private chats.');
+  } else if (choice === 'off') {
+    database.chatbot.enabled = false;
+    saveDatabase(database);
+    await sendReply(sock, msg, '✅ Chatbot is now *OFF* for private chats.');
+  } else {
+    await sendReply(sock, msg, `❌ Usage: ${context.prefix || '.'}chatbot <on|off>`);
+  }
+}
+
+function saveDatabase(db) {
+  const dbPath = path.join('./data', 'database.json');
+  fs.writeFileSync(dbPath, JSON.stringify(db, null, 2), 'utf-8');
 }

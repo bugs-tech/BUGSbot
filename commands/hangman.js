@@ -1,6 +1,12 @@
 // commands/hangman.js
+// 🎯 Hangman Command - Play a word guessing game with hints
+
+export const name = 'hangman';
+export const description = 'Play Hangman! Guess letters to find the hidden word.';
+export const category = 'Games';
+
 const words = [
- { word: 'javascript', hint: 'A popular programming language for the web' },
+  { word: 'javascript', hint: 'A popular programming language for the web' },
   { word: 'hangman', hint: 'The name of this guessing game' },
   { word: 'bot', hint: 'An automated program that chats or interacts' },
   { word: 'whatsapp', hint: 'A popular messaging app' },
@@ -20,8 +26,6 @@ const words = [
   { word: 'kangaroo', hint: 'Australian animal that jumps and carries babies' },
   { word: 'robot', hint: 'Machine that looks or acts like a human' },
   { word: 'wizard', hint: 'A person who casts magical spells' },
-
-  // New words below
   { word: 'skeleton', hint: 'Bones without flesh' },
   { word: 'marshmallow', hint: 'Soft, sweet, and good for roasting' },
   { word: 'lollipop', hint: 'A sweet candy on a stick' },
@@ -47,92 +51,94 @@ const words = [
 const maxAttempts = 6;
 const games = new Map();
 
-export const name = 'hangman';
-export const description = 'Play Hangman! Guess letters to find the hidden word.';
-export const category = 'Game';
-
 export async function execute(sock, msg, args, context) {
   const { sendReply } = context;
   const chatId = msg.key.remoteJid;
 
+  // Start new game if no args given
   if (args.length === 0) {
     if (games.has(chatId)) {
-      await sendReply(chatId, '⚠️ A game is already in progress. Guess a letter with `.hangman <letter>` or finish the current game first.');
-      return;
+      return sendReply('⚠️ A game is already in progress! Guess with `.hangman <letter>` or quit first.');
     }
     const chosen = words[Math.floor(Math.random() * words.length)];
     const word = chosen.word.toLowerCase();
     const hint = chosen.hint;
     const progress = '_'.repeat(word.length).split('');
-    const attemptsLeft = maxAttempts;
     const guessedLetters = [];
 
-    games.set(chatId, { word, hint, progress, attemptsLeft, guessedLetters });
+    games.set(chatId, { word, hint, progress, attemptsLeft: maxAttempts, guessedLetters });
 
-    await sendReply(chatId, 
+    return sendReply(
       `🎮 *Hangman started!*\n` +
-      `Hint: _${hint}_\n` +
-      `Word: \`${progress.join(' ')}\`\n` +
-      `Attempts left: ${attemptsLeft}\n` +
-      `Guess a letter with: \`.hangman <letter>\``);
-    return;
+      `💡 Hint: _${hint}_\n` +
+      `🔠 Word: \`${progress.join(' ')}\`\n` +
+      `❤️ Attempts left: ${maxAttempts}\n` +
+      `👉 Guess with: \`.hangman <letter>\``
+    );
   }
 
+  // Check no active game
   if (!games.has(chatId)) {
-    await sendReply(chatId, '⚠️ No game in progress. Start a new one with `.hangman`');
-    return;
+    return sendReply('⚠️ No active game. Start one with `.hangman`.');
   }
 
   const game = games.get(chatId);
   const letter = args[0].toLowerCase();
 
-  if (!letter.match(/^[a-z]$/)) {
-    await sendReply(chatId, '⚠️ Please guess a single letter (a-z).');
-    return;
+  // Validate input letter
+  if (!/^[a-z]$/.test(letter)) {
+    return sendReply('⚠️ Please guess a single letter (a-z).');
   }
 
   if (game.guessedLetters.includes(letter)) {
-    await sendReply(chatId, `⚠️ You've already guessed the letter *${letter}*.\nWord: \`${game.progress.join(' ')}\`\nAttempts left: ${game.attemptsLeft}`);
-    return;
+    return sendReply(
+      `⚠️ You already guessed *${letter}*.\n` +
+      `Word: \`${game.progress.join(' ')}\`\n` +
+      `❤️ Attempts left: ${game.attemptsLeft}`
+    );
   }
 
   game.guessedLetters.push(letter);
 
   if (game.word.includes(letter)) {
+    // Reveal letter positions
     for (let i = 0; i < game.word.length; i++) {
-      if (game.word[i] === letter) {
-        game.progress[i] = letter;
-      }
+      if (game.word[i] === letter) game.progress[i] = letter;
     }
 
+    // Win condition
     if (!game.progress.includes('_')) {
-      await sendReply(chatId, `🎉 *Congratulations!* You guessed the word:\n\`${game.word}\`\n\nType \`.hangman\` to start a new game.`);
       games.delete(chatId);
-      return;
-    } else {
-      await sendReply(chatId, 
-        `✅ Good guess!\n` +
-        `Hint: _${game.hint}_\n` +
-        `Word: \`${game.progress.join(' ')}\`\n` +
-        `Attempts left: ${game.attemptsLeft}\n` +
-        `Guessed letters: ${game.guessedLetters.join(', ')}`);
-      return;
+      return sendReply(
+        `🎉 *Congratulations!* You guessed the word: \`${game.word}\`\n` +
+        `Start a new game with \`.hangman\`.`
+      );
     }
-  } else {
-    game.attemptsLeft--;
 
-    if (game.attemptsLeft <= 0) {
-      await sendReply(chatId, `❌ Game over! You ran out of attempts.\nThe word was: \`${game.word}\`\n\nType \`.hangman\` to start a new game.`);
-      games.delete(chatId);
-      return;
-    } else {
-      await sendReply(chatId, 
-        `❌ Wrong guess!\n` +
-        `Hint: _${game.hint}_\n` +
-        `Word: \`${game.progress.join(' ')}\`\n` +
-        `Attempts left: ${game.attemptsLeft}\n` +
-        `Guessed letters: ${game.guessedLetters.join(', ')}`);
-      return;
-    }
+    return sendReply(
+      `✅ Good guess!\n` +
+      `💡 Hint: _${game.hint}_\n` +
+      `🔠 Word: \`${game.progress.join(' ')}\`\n` +
+      `❤️ Attempts left: ${game.attemptsLeft}\n` +
+      `🔤 Guessed: ${game.guessedLetters.join(', ')}`
+    );
   }
+
+  // Wrong guess
+  game.attemptsLeft--;
+  if (game.attemptsLeft <= 0) {
+    games.delete(chatId);
+    return sendReply(
+      `❌ Game over! The word was: \`${game.word}\`\n` +
+      `Start a new game with \`.hangman\`.`
+    );
+  }
+
+  return sendReply(
+    `❌ Wrong guess!\n` +
+    `💡 Hint: _${game.hint}_\n` +
+    `🔠 Word: \`${game.progress.join(' ')}\`\n` +
+    `❤️ Attempts left: ${game.attemptsLeft}\n` +
+    `🔤 Guessed: ${game.guessedLetters.join(', ')}`
+  );
 }

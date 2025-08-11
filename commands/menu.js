@@ -12,7 +12,7 @@ const imageFolderPath = './media/menu-images'; // place menu1.jpg, menu2.jpg, et
 
 // Commands grouped by category
 const ownerCommands = [
-  'autolike','autoviewstatus','autolikestatus','autoreact','autotyping','broadcast',
+  'autoviewstatus','autolikestatus','autoreact','autotyping','broadcast',
   'shutdown', 'clearall','restart', 
   'autoread', 'autotyping','addowner','removeowner'
 ];

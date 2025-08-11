@@ -4,7 +4,6 @@ export const name = 'wordscramble';
 export const description = 'Play Word Scramble game! Unscramble the letters to find the word.';
 export const category = 'Games';
 
-// Sample words with hints
 const wordList = [
   { word: 'javascript', hint: 'Programming language' },
   { word: 'bicycle', hint: 'Two wheels' },
@@ -18,10 +17,8 @@ const wordList = [
   { word: 'chocolate', hint: 'Sweet treat' },
 ];
 
-// Store game states per chat
 const games = new Map();
 
-// Helper to shuffle letters
 function shuffle(word) {
   const arr = word.split('');
   for (let i = arr.length - 1; i > 0; i--) {
@@ -36,11 +33,11 @@ export async function execute(sock, msg, args, context) {
   const chatId = msg.key.remoteJid;
 
   let game = games.get(chatId);
-
   const subcommand = args[0]?.toLowerCase();
 
   if (!subcommand || subcommand === 'help') {
-    return sendReply(chatId,
+    logCommand('help', chatId);
+    return sendReply(
       `🧩 *Word Scramble Game* 🧩\n\n` +
       `Commands:\n` +
       `• .wordscramble start - Start a new game\n` +
@@ -51,11 +48,11 @@ export async function execute(sock, msg, args, context) {
   }
 
   if (subcommand === 'start') {
+    logCommand('start', chatId);
     if (game && game.status === 'playing') {
-      return sendReply(chatId, '⚠️ A game is already in progress! Use `.wordscramble quit` to end it first.');
+      return sendReply('⚠️ A game is already in progress! Use `.wordscramble quit` to end it first.');
     }
 
-    // Pick a random word
     const selection = wordList[Math.floor(Math.random() * wordList.length)];
     const scrambled = shuffle(selection.word);
 
@@ -67,7 +64,7 @@ export async function execute(sock, msg, args, context) {
       attempts: 0,
     });
 
-    return sendReply(chatId,
+    return sendReply(
       `🎉 New Word Scramble game started!\n` +
       `Unscramble this word:\n\n` +
       `*${scrambled.toUpperCase()}*\n\n` +
@@ -76,12 +73,13 @@ export async function execute(sock, msg, args, context) {
   }
 
   if (!game || game.status !== 'playing') {
-    return sendReply(chatId, '❗ No active game. Start one with `.wordscramble start`.');
+    return sendReply('❗ No active game. Start one with `.wordscramble start`.');
   }
 
   if (subcommand === 'guess') {
+    logCommand(`guess ${args[1] || ''}`, chatId);
     if (!args[1]) {
-      return sendReply(chatId, '❗ Please provide a guess.\nExample: `.wordscramble guess bicycle`');
+      return sendReply('❗ Please provide a guess.\nExample: `.wordscramble guess bicycle`');
     }
 
     const guess = args.slice(1).join(' ').toLowerCase();
@@ -89,13 +87,13 @@ export async function execute(sock, msg, args, context) {
 
     if (guess === game.word.toLowerCase()) {
       games.delete(chatId);
-      return sendReply(chatId,
+      return sendReply(
         `🎊 Correct! The word was *${game.word}*.\n` +
         `You guessed it in *${game.attempts}* attempt(s).\n` +
         `Start a new game with \`.wordscramble start\`.`
       );
     } else {
-      return sendReply(chatId,
+      return sendReply(
         `❌ Wrong guess! Try again.\n` +
         `Use \`.wordscramble hint\` if you need help.\n` +
         `Attempts: ${game.attempts}`
@@ -104,19 +102,22 @@ export async function execute(sock, msg, args, context) {
   }
 
   if (subcommand === 'hint') {
-    if (!game) {
-      return sendReply(chatId, '❗ No active game. Start one with `.wordscramble start`.');
-    }
-    return sendReply(chatId, `💡 Hint: ${game.hint}`);
+    logCommand('hint', chatId);
+    return sendReply(`💡 Hint: ${game.hint}`);
   }
 
   if (subcommand === 'quit') {
-    if (!game) {
-      return sendReply(chatId, '❗ No active game to quit.');
-    }
+    logCommand('quit', chatId);
     games.delete(chatId);
-    return sendReply(chatId, '🛑 Game ended. Thanks for playing!\nStart again with `.wordscramble start`.');
+    return sendReply('🛑 Game ended. Thanks for playing!\nStart again with `.wordscramble start`.');
   }
 
-  return sendReply(chatId, '❓ Unknown command. Use `.wordscramble help` for instructions.');
+  return sendReply('❓ Unknown command. Use `.wordscramble help` for instructions.');
+}
+
+function logCommand(action, chatId) {
+  console.log(`✅ Command 'wordscramble ${action}' executed successfully.`);
+  console.log(`📨 Message from ${chatId}`);
+  console.log(`💬 ${chatId} (👥 ${chatId.includes('@g.us') ? 'Group Chat' : 'Private Chat'}): ${chatId}`);
+  console.log(`\n— *BUGS-BOT support tech*`);
 }

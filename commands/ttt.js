@@ -1,5 +1,8 @@
 // commands/ttt.js
 
+import pkg from '@whiskeysockets/baileys';
+const { generateWAMessageFromContent, proto } = pkg;
+
 export const name = 'ttt';
 export const description = 'Play Tic-Tac-Toe with the bot';
 export const category = 'Games';
@@ -31,11 +34,34 @@ function isFull(board) {
   return board.every(row => row.every(cell => cell !== ' '));
 }
 
-export async function execute(sock, msg, args, context) {
-  const { sendReply } = context;
+// Custom sendReply with footer channel link
+async function sendTttReply(sock, msg, text) {
+  const message = generateWAMessageFromContent(
+    msg.key.remoteJid,
+    {
+      extendedTextMessage: {
+        text: text,
+        contextInfo: {
+          externalAdReply: {
+            title: "🎯 Tic-Tac-Toe",
+            body: "View Channel",
+            mediaType: 1,
+            thumbnailUrl: "", // optional thumbnail image
+            sourceUrl: "https://whatsapp.com/channel/0029Vb5p1DHI7Be7UmI7BW0f",
+            renderLargerThumbnail: false
+          }
+        }
+      }
+    },
+    { quoted: msg }
+  );
+
+  await sock.relayMessage(msg.key.remoteJid, message.message, { messageId: message.key.id });
+}
+
+export async function execute(sock, msg, args) {
   const chatId = msg.key.remoteJid;
 
-  // Initialize game state per chat in-memory
   if (!global.tttGames) global.tttGames = {};
   if (!global.tttGames[chatId]) {
     global.tttGames[chatId] = {
@@ -46,46 +72,45 @@ export async function execute(sock, msg, args, context) {
   const game = global.tttGames[chatId];
 
   if (args.length === 0) {
-    await sendReply(chatId, `🎮 *Tic Tac Toe*\n\n${renderBoard(game.board)}\n\nMake your move: .ttt <position 1-9>`);
+    await sendTttReply(sock, msg, `🎮 *Tic Tac Toe*\n\n${renderBoard(game.board)}\n\nMake your move: .ttt <position 1-9>`);
     return;
   }
 
   if (!game.playing) {
-    await sendReply(chatId, `Game over! Start a new game by typing .ttt`);
+    await sendTttReply(sock, msg, `Game over! Start a new game by typing .ttt`);
     return;
   }
 
   const pos = parseInt(args[0], 10);
   if (!pos || pos < 1 || pos > 9) {
-    await sendReply(chatId, '⚠️ Please provide a valid position (1-9).');
+    await sendTttReply(sock, msg, '⚠️ Please provide a valid position (1-9).');
     return;
   }
 
-  // Convert position to board coordinates
   const row = Math.floor((pos - 1) / 3);
   const col = (pos - 1) % 3;
 
   if (game.board[row][col] !== ' ') {
-    await sendReply(chatId, '⚠️ That position is already taken.');
+    await sendTttReply(sock, msg, '⚠️ That position is already taken.');
     return;
   }
 
-  // Player is always X
+  // Player move (X)
   game.board[row][col] = 'X';
 
   if (checkWin(game.board, 'X')) {
     game.playing = false;
-    await sendReply(chatId, `🎉 You won!\n\n${renderBoard(game.board)}`);
+    await sendTttReply(sock, msg, `🎉 You won!\n\n${renderBoard(game.board)}`);
     return;
   }
 
   if (isFull(game.board)) {
     game.playing = false;
-    await sendReply(chatId, `🤝 It's a draw!\n\n${renderBoard(game.board)}`);
+    await sendTttReply(sock, msg, `🤝 It's a draw!\n\n${renderBoard(game.board)}`);
     return;
   }
 
-  // Bot random move O
+  // Bot move (O)
   let emptyPositions = [];
   for (let r = 0; r < 3; r++) {
     for (let c = 0; c < 3; c++) {
@@ -97,15 +122,15 @@ export async function execute(sock, msg, args, context) {
 
   if (checkWin(game.board, 'O')) {
     game.playing = false;
-    await sendReply(chatId, `💻 Bot wins!\n\n${renderBoard(game.board)}`);
+    await sendTttReply(sock, msg, `💻 Bot wins!\n\n${renderBoard(game.board)}`);
     return;
   }
 
   if (isFull(game.board)) {
     game.playing = false;
-    await sendReply(chatId, `🤝 It's a draw!\n\n${renderBoard(game.board)}`);
+    await sendTttReply(sock, msg, `🤝 It's a draw!\n\n${renderBoard(game.board)}`);
     return;
   }
 
-  await sendReply(chatId, `Your move:\n\n${renderBoard(game.board)}\n\nUse .ttt <position 1-9> to play.`);
+  await sendTttReply(sock, msg, `Your move:\n\n${renderBoard(game.board)}\n\nUse .ttt <position 1-9> to play.`);
 }

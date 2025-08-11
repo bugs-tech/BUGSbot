@@ -1,17 +1,25 @@
-// commands/joke.js
+import fetch from 'node-fetch';
+
 export const name = 'joke';
+export const description = 'Tells a random joke';
+export const category = 'Fun';
 
-const jokes = [
-  "Why don't scientists trust atoms? Because they make up everything!",
-  "Why did the computer go to the doctor? Because it had a virus!",
-  "I told my computer I needed a break, and it said 'No problem, I'll go to sleep.'",
-  "Why do programmers prefer dark mode? Because light attracts bugs!",
-  "Why did the scarecrow win an award? Because he was outstanding in his field!",
-];
+export async function execute(sock, msg, args, context) {
+  const { sendReply } = context;
 
-export async function execute(sock, msg, args) {
-  const joke = jokes[Math.floor(Math.random() * jokes.length)];
-  await sock.sendMessage(msg.key.remoteJid, {
-    text: `🤣 Joke:\n${joke}`
-  }, { quoted: msg });
+  try {
+    const res = await fetch('https://api.giftedtech.co.ke/api/fun/jokes?apikey=gifted');
+    const data = await res.json();
+
+    if (data.status === 200 && data.success && data.result) {
+      const { setup, punchline } = data.result;
+
+      await sendReply(`${setup}\n\n${punchline}`);
+    } else {
+      await sendReply('😅 Sorry, I could not fetch a joke right now. Try again later.');
+    }
+  } catch (e) {
+    console.error('Error fetching joke:', e);
+    await sendReply('😅 Sorry, something went wrong while fetching a joke.');
+  }
 }

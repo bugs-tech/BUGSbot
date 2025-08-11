@@ -1,25 +1,35 @@
 export const name = 'rps';
-export const description = 'Play rock-paper-scissors with the bot';
-export const category = 'Games';
+export const description = 'Play Rock-Paper-Scissors with the bot';
 
-export async function execute(sock, msg, args, context) {
-  const { sendReply } = context; // get sendReply from context
+export async function execute(sock, msg, args) {
+  const sendReply = async (jid, text) => {
+    await sock.sendMessage(jid, { text });
+  };
 
-  if (args.length === 0) {
-    return await sendReply(msg.key.remoteJid, 'Usage: .rps <rock|paper|scissors>');
+  const choices = ['rock', 'paper', 'scissors'];
+
+  if (!args.length) {
+    return sendReply(
+      msg.key.remoteJid,
+      `Please choose one:\n.rps rock\n.rps paper\n.rps scissors`
+    );
   }
 
   const userChoice = args[0].toLowerCase();
-  const choices = ['rock', 'paper', 'scissors'];
+
   if (!choices.includes(userChoice)) {
-    return await sendReply(msg.key.remoteJid, 'Invalid choice! Choose rock, paper, or scissors.');
+    return sendReply(
+      msg.key.remoteJid,
+      `Invalid choice! Please pick one of:\nrock, paper, or scissors.\nExample: .rps rock`
+    );
   }
 
   const botChoice = choices[Math.floor(Math.random() * choices.length)];
 
   let result = '';
-  if (userChoice === botChoice) result = 'It\'s a tie!';
-  else if (
+  if (userChoice === botChoice) {
+    result = "It's a tie! 🤝";
+  } else if (
     (userChoice === 'rock' && botChoice === 'scissors') ||
     (userChoice === 'paper' && botChoice === 'rock') ||
     (userChoice === 'scissors' && botChoice === 'paper')
@@ -29,5 +39,7 @@ export async function execute(sock, msg, args, context) {
     result = 'You lose! 😢';
   }
 
-  await sendReply(msg.key.remoteJid, `You chose *${userChoice}*.\nI chose *${botChoice}*.\n${result}`);
+  const reply = `You chose: *${userChoice}*\nI chose: *${botChoice}*\n\n${result}`;
+
+  await sendReply(msg.key.remoteJid, reply);
 }
