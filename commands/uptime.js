@@ -5,7 +5,7 @@ export const description = 'Shows bot uptime and system info';
 export const category = 'Info';
 
 export async function execute(sock, msg, args, context) {
-  const { getName, senderJid, sendReply } = context;
+  const { getName, senderJid } = context;
   const chatId = msg.key.remoteJid;
 
   // Get display name with fallback
@@ -30,19 +30,22 @@ export async function execute(sock, msg, args, context) {
   const cpuModel = cpus[0]?.model || 'Unknown';
   const cpuSpeed = cpus[0]?.speed || 'Unknown';
 
-  // Compose message with mention tag
-  const messageLines = [
+  // Message text
+  const text = [
     '╭─「 🤖 Bot Uptime Info 」',
     `│ 📅 Date: ${dateStr}`,
     `│ ⏰ Time: ${timeStr}`,
-    `│ 👤 User: ${userName}`,  // mention by username
+    `│ 👤 User: @${userName}`,
     `│ ⏳ Uptime: ${uptimeStr}`,
     `│ 🖥️ Processor: ${cpuModel}`,
     `│ ⚡ Speed: ${cpuSpeed} MHz`,
     `│ 💾 RAM: ${freeMemMB} MB free / ${totalMemMB} MB total`,
     '╰───────────────────────'
-  ];
+  ].join('\n');
 
-  // send with mention metadata
-  await sock.sendMessage(chatId, { text: message }, { quoted: msg });
+  // Send message with user mention
+  await sock.sendMessage(chatId, {
+    text,
+    mentions: [senderJid]
+  }, { quoted: msg });
 }
