@@ -9,7 +9,8 @@
     "chatbot": false
   },
     
-  "notifGroups": {}
+  "notifGroups": {},
+   "welcome":{}
 	
 
 }
