@@ -1,4 +1,3 @@
-// index.js
 import {
     makeWASocket,
     useMultiFileAuthState,
@@ -29,22 +28,17 @@ const glitchBanner = `
 ██   ██  ██    ██  ██    ██       ██      
 ██████    ██████    ██████   ███████
 
-█▓▒░ BOT DEVELOPER ░▒▓█
------------------------------------------
-`;
 
-// 📥 Animated console print
-async function printBannerAnimated(banner) {
-    for (const line of banner.split("\n")) {
-        process.stdout.write(line + "\n");
-        await new Promise(res => setTimeout(res, 50)); // 50ms delay per line
-    }
-}
+       █▓▒░ BOT DEVELOPER ░▒▓█
+-----------------------------------------
+\n\n\n
+📱 Enter your WhatsApp number (e.g. 2348012345678): 
+`;
 
 // 📥 Ask user for number
 async function askNumber() {
     console.clear();
-    await printBannerAnimated(glitchBanner);
+    console.log(glitchBanner); // ✅ No animation
 
     const rl = readline.createInterface({
         input: process.stdin,
