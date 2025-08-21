@@ -216,7 +216,9 @@ export async function handleGroupParticipantUpdate(sock, update) {
   if (!participants || participants.length === 0) return;
 
   let metadata;
-  try { metadata = await sock.groupMetadata(groupId); } catch { return; }
+  try { metadata = await sock.groupMetadata(groupId); } 
+  catch { metadata = { subject: 'Unknown Group', desc: 'No description', participants: [] }; }
+
   const groupName = metadata.subject || 'Unknown Group';
   const groupDesc = metadata.desc || 'No description';
   const memberCount = metadata.participants.length;
@@ -226,8 +228,7 @@ export async function handleGroupParticipantUpdate(sock, update) {
     const ppUrl = await sock.profilePictureUrl(groupId, 'image');
     if (ppUrl) {
       const res = await fetch(ppUrl);
-      const arrayBuffer = await res.arrayBuffer();
-      ppBuffer = Buffer.from(arrayBuffer);
+      if (res.ok) ppBuffer = Buffer.from(await res.arrayBuffer());
     }
   } catch {}
 
@@ -253,11 +254,13 @@ export async function handleGroupParticipantUpdate(sock, update) {
 ╰─────────•✧•─────────╯
 `.trim();
 
-    await sock.sendMessage(groupId, {
-      text: messageText,
-      mentions: [user], // display user name instead of number
-      ...(ppBuffer ? { image: ppBuffer, mimetype: 'image/jpeg' } : {})
-    });
+    const messagePayload = { text: messageText, mentions: [user] };
+    if (ppBuffer) {
+      messagePayload.image = ppBuffer;
+      messagePayload.mimetype = 'image/jpeg';
+    }
+
+    await sock.sendMessage(groupId, messagePayload);
   }
 }
 
