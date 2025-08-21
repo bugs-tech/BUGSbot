@@ -1,136 +1,115 @@
-// commands/ttt.js
+import { sendReply } from '../lib/sendReply.js';
 
-import pkg from '@whiskeysockets/baileys';
-const { generateWAMessageFromContent, proto } = pkg;
+let tttGames = new Map(); // key: chatId, value: game state
 
-export const name = 'ttt';
-export const description = 'Play Tic-Tac-Toe with the bot';
-export const category = 'Games';
-
-const emptyBoard = [
-  [' ', ' ', ' '],
-  [' ', ' ', ' '],
-  [' ', ' ', ' ']
-];
-
-// Render board as text with emojis
-function renderBoard(board) {
-  return board.map(row => row.map(cell => cell === ' ' ? '⬜' : cell).join(' ')).join('\n');
+function displayBoard(board) {
+  return board.map((cell, idx) => cell || (idx + 1)).reduce((acc, val, idx) => {
+    if (typeof val === 'number') val = `${val}️⃣`;
+    acc += val;
+    if ((idx + 1) % 3 === 0) acc += '\n';
+    return acc;
+  }, '');
 }
 
-// Check if player has won
-function checkWin(board, player) {
-  for (let i = 0; i < 3; i++) {
-    if (board[i].every(cell => cell === player)) return true;
-    if (board[0][i] === player && board[1][i] === player && board[2][i] === player) return true;
+function boardHint() {
+  return '1️⃣2️⃣3️⃣\n4️⃣5️⃣6️⃣\n7️⃣8️⃣9️⃣';
+}
+
+function checkWinner(board) {
+  const wins = [
+    [0,1,2],[3,4,5],[6,7,8],
+    [0,3,6],[1,4,7],[2,5,8],
+    [0,4,8],[2,4,6]
+  ];
+  for (const [a,b,c] of wins) {
+    if (board[a] && board[a] === board[b] && board[a] === board[c]) return board[a];
   }
-  if (board[0][0] === player && board[1][1] === player && board[2][2] === player) return true;
-  if (board[0][2] === player && board[1][1] === player && board[2][0] === player) return true;
-  return false;
+  return null;
 }
 
-// Check if board is full
-function isFull(board) {
-  return board.every(row => row.every(cell => cell !== ' '));
+async function getUserName(sock, jid) {
+  try {
+    const contacts = await sock.onWhatsApp(jid);
+    if (contacts?.length) return contacts[0].notify || contacts[0].vname || contacts[0].name || jid.split('@')[0];
+  } catch {}
+  return jid.split('@')[0];
 }
 
-// Custom sendReply with footer channel link
-async function sendTttReply(sock, msg, text) {
-  const message = generateWAMessageFromContent(
-    msg.key.remoteJid,
-    {
-      extendedTextMessage: {
-        text: text,
-        contextInfo: {
-          externalAdReply: {
-            title: "🎯 Tic-Tac-Toe",
-            body: "View Channel",
-            mediaType: 1,
-            thumbnailUrl: "", // optional thumbnail image
-            sourceUrl: "https://whatsapp.com/channel/0029Vb5p1DHI7Be7UmI7BW0f",
-            renderLargerThumbnail: false
-          }
-        }
-      }
-    },
-    { quoted: msg }
-  );
-
-  await sock.relayMessage(msg.key.remoteJid, message.message, { messageId: message.key.id });
-}
+export const name = "ttt";
+export const description = "🎮 Two-player Tic Tac Toe game";
 
 export async function execute(sock, msg, args) {
   const chatId = msg.key.remoteJid;
+  const from = msg.key.participant || msg.key.remoteJid;
 
-  if (!global.tttGames) global.tttGames = {};
-  if (!global.tttGames[chatId]) {
-    global.tttGames[chatId] = {
-      board: JSON.parse(JSON.stringify(emptyBoard)),
-      playing: true,
-    };
-  }
-  const game = global.tttGames[chatId];
+  if (!args[0]) return sendReply(sock, msg, 
+    "🎮 Tic Tac Toe Game\nCommands:\n.ttt start - create a game\n.ttt join - join a game\n.ttt <1-9> - make a move\n.ttt end - end current game\n\nCell numbers:\n" + boardHint()
+  );
 
-  if (args.length === 0) {
-    await sendTttReply(sock, msg, `🎮 *Tic Tac Toe*\n\n${renderBoard(game.board)}\n\nMake your move: .ttt <position 1-9>`);
-    return;
-  }
-
-  if (!game.playing) {
-    await sendTttReply(sock, msg, `Game over! Start a new game by typing .ttt`);
-    return;
+  if (args[0].toLowerCase() === 'end') {
+    if (!tttGames.has(chatId)) return sendReply(sock, msg, "⚠️ No ongoing Tic Tac Toe game.");
+    const game = tttGames.get(chatId);
+    if (!game.players.includes(from)) return sendReply(sock, msg, "❌ Only current players can end the game.");
+    tttGames.delete(chatId);
+    return sendReply(sock, msg, "🛑 Tic Tac Toe game ended.");
   }
 
-  const pos = parseInt(args[0], 10);
-  if (!pos || pos < 1 || pos > 9) {
-    await sendTttReply(sock, msg, '⚠️ Please provide a valid position (1-9).');
-    return;
+  if (args[0].toLowerCase() === 'start') {
+    if (tttGames.has(chatId)) return sendReply(sock, msg, "❌ A game is already in progress.");
+
+    // Create game immediately
+    tttGames.set(chatId, { players: [from], playerNames: {}, board: Array(9).fill(''), turn: null });
+
+    await sendReply(sock, msg, "🎮 Tic Tac Toe created!");
+    return sendReply(sock, msg, "⏳ Waiting for a second player to join. Type `.ttt join` to start the game.\n\nCell numbers:\n" + boardHint());
   }
 
-  const row = Math.floor((pos - 1) / 3);
-  const col = (pos - 1) % 3;
+  if (args[0].toLowerCase() === 'join') {
+    if (!tttGames.has(chatId)) return sendReply(sock, msg, "⚠️ No game to join. Type `.ttt start` to create one.");
+    const game = tttGames.get(chatId);
+    if (game.players.includes(from)) return sendReply(sock, msg, "❌ You already joined the game.");
+    if (game.players.length >= 2) return sendReply(sock, msg, "❌ Game already has 2 players.");
 
-  if (game.board[row][col] !== ' ') {
-    await sendTttReply(sock, msg, '⚠️ That position is already taken.');
-    return;
+    game.players.push(from);
+
+    // Fetch and cache player names only once
+    game.playerNames[game.players[0]] = await getUserName(sock, game.players[0]);
+    game.playerNames[game.players[1]] = await getUserName(sock, game.players[1]);
+
+    game.turn = game.players[0]; // first player starts
+
+    return sendReply(sock, msg,
+      `✅ Second player joined! Game started.\nPlayers:\n1️⃣ @${game.playerNames[game.players[0]]}\n2️⃣ @${game.playerNames[game.players[1]]}\n\nIt is @${game.playerNames[game.turn]}'s turn.\n\n` + displayBoard(game.board),
+      { mentions: game.players }
+    );
   }
 
-  // Player move (X)
-  game.board[row][col] = 'X';
+  if (!tttGames.has(chatId)) return sendReply(sock, msg, "⚠️ No ongoing game. Type `.ttt start` to create one.");
+  const game = tttGames.get(chatId);
+  if (game.players.length < 2) return sendReply(sock, msg, "⏳ Waiting for a second player to join.");
 
-  if (checkWin(game.board, 'X')) {
-    game.playing = false;
-    await sendTttReply(sock, msg, `🎉 You won!\n\n${renderBoard(game.board)}`);
-    return;
+  const move = parseInt(args[0], 10);
+  if (isNaN(move) || move < 1 || move > 9) return sendReply(sock, msg, "❌ Invalid move. Choose a number from 1-9.");
+  if (from !== game.turn) return sendReply(sock, msg, "⏳ It's not your turn.");
+  if (game.board[move-1]) return sendReply(sock, msg, "❌ That cell is already taken.");
+
+  const symbol = game.players[0] === from ? '❌' : '⭕';
+  game.board[move-1] = symbol;
+
+  const winner = checkWinner(game.board);
+  const playerNames = game.playerNames;
+
+  if (winner) {
+    tttGames.delete(chatId);
+    return sendReply(sock, msg, displayBoard(game.board) + `\n🏆 @${playerNames[from]} wins!`, { mentions: game.players });
   }
 
-  if (isFull(game.board)) {
-    game.playing = false;
-    await sendTttReply(sock, msg, `🤝 It's a draw!\n\n${renderBoard(game.board)}`);
-    return;
+  if (game.board.every(cell => cell)) {
+    tttGames.delete(chatId);
+    return sendReply(sock, msg, displayBoard(game.board) + "\n🤝 It's a draw!", { mentions: game.players });
   }
 
-  // Bot move (O)
-  let emptyPositions = [];
-  for (let r = 0; r < 3; r++) {
-    for (let c = 0; c < 3; c++) {
-      if (game.board[r][c] === ' ') emptyPositions.push({ r, c });
-    }
-  }
-  const botMove = emptyPositions[Math.floor(Math.random() * emptyPositions.length)];
-  game.board[botMove.r][botMove.c] = 'O';
+  game.turn = game.players.find(p => p !== from);
 
-  if (checkWin(game.board, 'O')) {
-    game.playing = false;
-    await sendTttReply(sock, msg, `💻 Bot wins!\n\n${renderBoard(game.board)}`);
-    return;
-  }
-
-  if (isFull(game.board)) {
-    game.playing = false;
-    await sendTttReply(sock, msg, `🤝 It's a draw!\n\n${renderBoard(game.board)}`);
-    return;
-  }
-
-  await sendTttReply(sock, msg, `Your move:\n\n${renderBoard(game.board)}\n\nUse .ttt <position 1-9> to play.`);
+  return sendReply(sock, msg, displayBoard(game.board) + `\nIt is @${playerNames[game.turn]}'s turn.`, { mentions: [game.turn] });
 }

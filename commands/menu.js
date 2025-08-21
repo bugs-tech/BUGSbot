@@ -12,9 +12,9 @@ const imageFolderPath = './media/menu-images'; // place menu1.jpg, menu2.jpg, et
 
 // Commands grouped by category
 const ownerCommands = [
-  'autoviewstatus','autolikestatus','autoreact','autotyping','broadcast',
+  'autoviewstatus','autolikestatus','autoreact','autotype','broadcast',
   'shutdown', 'clearall','restart','ban',
-  'autoread', 'autotyping','addowner','removeowner'
+  'autoread','addowner','removeowner'
 ];
 const groupCommands = [
   'promote', 'demote', 'kick','lock','unlock', 'mute', 'antilink', 'grouplock','gcbroadcast',
@@ -25,7 +25,7 @@ const generalCommands = ['ping', 'menu','echo','about','joke','roll','owner','re
 const gameCommands = ['rps','ttt','ngg','hangman','wordscramble'];
 const imageCommands = ['toimg','blur','rotate','sticker','invert','greyscale','removebg'];
 const downloadCommands = ['apkdl','play','song','ttdl','yta','ytv','ytdl','ytmp3','ytmp4','facedl','facedl1','spotdl'];
-const aiCommands = ['ai', 'ask','chat','gimg','gimg1','translate'];
+const aiCommands = ['ai', 'ask','img','gimg','gimg1','translate'];
 const funCommands = ['bomb','crash','lag','spam','spams','stop'];
 const stalkCommands = ['igs','igs1','tts','tts1','ips','ghs','npms','wcs'];
 

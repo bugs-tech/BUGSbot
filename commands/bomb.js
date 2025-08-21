@@ -13,7 +13,7 @@ export async function execute(sock, msg, args, context) {
   const target = mentionedJid?.[0];
   if (!target) return sendReply(where, '⚠️ Mention a user to bomb.\n\nUsage: .bomb @user');
 
-  const count = 50; // Number of messages to send
+  const count = 10; // Number of messages to send
   const delay = 50; // Delay between messages (ms)
 
   await sendReply(where, `💣 Launching message bomb on @${target.split('@')[0]}...`, {

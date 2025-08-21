@@ -1,7 +1,7 @@
 import fetch from 'node-fetch';
 
 export const name = 'ask';
-export const description = 'Ask Gemini AI a question';
+export const description = 'Ask AI a question'; // removed Gemini
 export const category = 'AI';
 
 export async function execute(sock, msg, args, context) {
@@ -12,6 +12,7 @@ export async function execute(sock, msg, args, context) {
   }
 
   const query = encodeURIComponent(args.join(' '));
+  // You can still use the Gemini endpoint, but we hide its branding in responses
   const apiUrl = `https://api.giftedtech.co.ke/api/ai/geminiai?apikey=gifted&q=${query}`;
 
   try {
@@ -23,18 +24,19 @@ export async function execute(sock, msg, args, context) {
     console.log('🔍 API Response (ask):', json);
 
     if (!json?.result) {
-      return sendReply('⚠️ Gemini AI did not return a valid response.\n\n— *BUGS-BOT support tech*');
+      return sendReply('⚠️ AI did not return a valid response.\n\n— > Bugs');
     }
 
-    // Remove any "Powered by..." footer from response
+    // Strip unwanted footers or branding
     const cleanResult = json.result
-      .replace(/_?Powered by.*$/i, '') // Removes "Powered by GiftedTech AI" or similar
+      .replace(/_?Powered by.*$/i, '')   // removes "Powered by ..." lines
+      .replace(/Gemini\s*AI/gi, 'AI')    // replaces "Gemini AI" mentions
       .trim();
 
-    await sendReply(`*🧠 Gemini AI Response:*\n\n${cleanResult}\n\n— *BUGS-BOT support tech*`);
+    await sendReply(`*🧠 AI Response:*\n\n${cleanResult}\n\n`);
 
   } catch (error) {
     console.error('❌ Error executing ask:', error);
-    return sendReply('❌ An unexpected error occurred while using Gemini AI.');
+    return sendReply('❌ An unexpected error occurred while using AI.');
   }
 }

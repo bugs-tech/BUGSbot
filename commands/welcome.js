@@ -47,7 +47,13 @@ export async function execute(sock, msg, args) {
   if (!groupId.endsWith("@g.us"))
     return sendReply(sock, groupId, "❌ This command only works in groups.");
 
-  const metadata = await sock.groupMetadata(groupId);
+  let metadata;
+  try {
+    metadata = await sock.groupMetadata(groupId);
+  } catch {
+    return sendReply(sock, groupId, "❌ Failed to fetch group metadata.");
+  }
+
   const sender = msg.key.participant || msg.participant || groupId;
   const admins = metadata.participants.filter(p => p.admin);
 
@@ -86,14 +92,19 @@ export async function onGroupParticipantsUpdate(sock, update) {
   const { subject: groupName = "Unknown Group", desc: groupDesc = "" } = metadata;
   const memberCount = metadata.participants.length;
 
-  let ppBuffer = null;
+  // Fetch group profile picture
+  let ppBuffer;
   try {
     const ppUrl = await sock.profilePictureUrl(groupId, "image");
     if (ppUrl) {
       const res = await fetch(ppUrl);
-      ppBuffer = Buffer.from(await res.arrayBuffer());
+      const arrayBuffer = await res.arrayBuffer();
+      ppBuffer = Buffer.from(arrayBuffer);
     }
-  } catch {}
+  } catch (err) {
+    console.warn("⚠️ Could not fetch group profile picture:", err);
+    ppBuffer = null; // fallback: no image
+  }
 
   const date = new Date().toLocaleString("en-GB");
 
@@ -120,11 +131,12 @@ ${groupDesc ? `│ 📝 Desc: ${groupDesc}` : ""}
 ╰─────────•✧•─────────╯
 `.trim();
 
-    await sendReply(
-      sock,
-      groupId,
-      messageText,
-      ppBuffer ? { image: ppBuffer, mimetype: "image/jpeg" } : {}
-    );
+    // Send welcome message with group profile picture if available
+    const messageOptions = { text: messageText, mentions: [participant] };
+    if (ppBuffer) {
+      messageOptions.image = { buffer: ppBuffer, mimetype: "image/jpeg" };
+    }
+
+    await sendReply(sock, groupId, messageText, messageOptions);
   }
 }

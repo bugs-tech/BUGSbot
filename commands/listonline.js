@@ -4,7 +4,7 @@ export async function execute(sock, msg, args, context) {
   const { isGroup, sendReply, getName, presenceMap, replyJid } = context;
 
   if (!isGroup) {
-    await sendReply('This command can only be used in groups.');
+    await sendReply('❌ This command can only be used in groups.');
     return;
   }
 
@@ -13,36 +13,65 @@ export async function execute(sock, msg, args, context) {
     const metadata = await sock.groupMetadata(replyJid);
     const participants = metadata.participants;
 
-    // Filter participants by online presence
-    // presenceMap stores presence by jid with a structure like { id: jid, type: "available" or "unavailable", lastKnownPresence: ... }
-    // Adjust according to your presence update structure, assuming 'type' indicates online/offline
+    // Collect online + recently online
+    const onlineUsers = [];
+    const recentUsers = [];
+    const now = Date.now();
 
-    const onlineUsers = participants.filter(p => {
-      const presence = presenceMap.get(p.id || p.jid || p.user) || presenceMap.get(p.jid);
-      // presence?.type === 'available' means user is online
-      // Sometimes presence event can have 'lastKnownPresence' or 'presence' field — adjust if needed
-      return presence && (presence.type === 'available' || presence.lastKnownPresence === 'available');
-    });
+    for (const p of participants) {
+      const userJid = p.id || p.jid || p.user;
+      const presence = presenceMap.get(userJid);
 
-    if (onlineUsers.length === 0) {
-      await sendReply('No group members are online right now.');
+      if (!presence) continue;
+
+      // Mark as online if actively available
+      if (
+        presence.lastKnownPresence === 'available' ||
+        presence.lastKnownPresence === 'composing' ||
+        presence.lastKnownPresence === 'recording'
+      ) {
+        onlineUsers.push(userJid);
+        presence.lastOnline = now; // update last seen
+        presenceMap.set(userJid, presence);
+      } else if (presence.lastOnline && now - presence.lastOnline < 120000) {
+        // Seen within 2 mins
+        recentUsers.push(userJid);
+      }
+    }
+
+    if (onlineUsers.length === 0 && recentUsers.length === 0) {
+      await sendReply('😴 No group members are active right now.');
       return;
     }
 
-    // Build mention list and message text
-    let message = `🟢 *Online Members (${onlineUsers.length}):*\n\n`;
-    const mentions = [];
+    // Build output message
+    let message = `📡 *Online/Recently Active Members*\n\n`;
 
-    for (const user of onlineUsers) {
-      const userJid = user.id || user.jid || user.user;
-      const name = await getName(userJid) || userJid.split('@')[0];
-      message += `- @${userJid.split('@')[0]} (${name})\n`;
-      mentions.push(userJid);
+    if (onlineUsers.length > 0) {
+      message += `🟢 *Currently Online (${onlineUsers.length}):*\n`;
+      for (const jid of onlineUsers) {
+        const name = await getName(jid) || jid.split('@')[0];
+        message += `- @${jid.split('@')[0]} (${name})\n`;
+      }
+      message += `\n`;
     }
 
-    await sock.sendMessage(replyJid, { text: message, mentions });
+    if (recentUsers.length > 0) {
+      message += `🕒 *Recently Online (last 2 min) (${recentUsers.length}):*\n`;
+      for (const jid of recentUsers) {
+        const name = await getName(jid) || jid.split('@')[0];
+        message += `- @${jid.split('@')[0]} (${name})\n`;
+      }
+    }
+
+    // Send with mentions
+    await sock.sendMessage(replyJid, {
+      text: message,
+      mentions: [...onlineUsers, ...recentUsers],
+    });
+
   } catch (e) {
     console.error('❌ Error in listonline:', e);
-    await sendReply('Failed to get online members.');
+    await sendReply('⚠️ Failed to get online members.');
   }
 }
