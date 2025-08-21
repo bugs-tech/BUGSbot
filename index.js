@@ -8,50 +8,15 @@ import { Boom } from "@hapi/boom";
 import fs from "fs";
 import path from "path";
 import pino from "pino";
-import readline from "readline";
 import { handleCommand, handleStatus, initGroupListeners } from "./handler.js";
 
 const authFolder = "./auth";
-const sessionsFolder = "./sessions";
 
 // 📁 Load Anti-Link settings
 const antiLinkPath = "./data/antilink.json";
 let antiLinkData = fs.existsSync(antiLinkPath)
     ? JSON.parse(fs.readFileSync(antiLinkPath, "utf-8"))
     : {};
-
-// 🎨 Glitch banner
-const glitchBanner = `
-██████   ██    ██   ██████   ███████ 
-██   ██  ██    ██  ██        ██      
-██████   ██    ██  ██   ███  ███████   
-██   ██  ██    ██  ██    ██       ██      
-██████    ██████    ██████   ███████
-
-
-       █▓▒░ BOT DEVELOPER ░▒▓█
------------------------------------------
-\n\n\n
-📱 Enter your WhatsApp number (e.g. 2348012345678): 
-`;
-
-// 📥 Ask user for number
-async function askNumber() {
-    console.clear();
-    console.log(glitchBanner); // ✅ No animation
-
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout,
-    });
-
-    return new Promise(resolve => {
-        rl.question("📱 Enter your WhatsApp number (e.g. 2348012345678): ", (num) => {
-            rl.close();
-            resolve(num.trim());
-        });
-    });
-}
 
 async function startBot() {
     // ✅ Auth and version setup
@@ -112,25 +77,14 @@ async function startBot() {
     // ✅ Initialize group listeners for welcome/goodbye
     initGroupListeners(sock);
 
-    // 🔁 Connection updates
+    // 🔁 Connection updates (QR code & reconnection)
     sock.ev.on("connection.update", async (update) => {
-        const { connection, lastDisconnect } = update;
+        const { connection, lastDisconnect, qr } = update;
 
-        // 🔑 Number-based pairing (if creds.json missing)
-        const credsPath = path.join(authFolder, "creds.json");
-        if (connection === "connecting" && !fs.existsSync(credsPath)) {
-            const number = await askNumber();
-            try {
-                const code = await sock.requestPairingCode(number);
-                console.log(`\n🔑 Your WhatsApp Pairing Code: ${code}\n`);
-
-                await sock.sendMessage(number + "@s.whatsapp.net", {
-                    text: `🔑 Your WhatsApp Pairing Code is: *${code}*\n\nEnter this on WhatsApp to link your bot.\n\n> 🤖 BUGS BOT`,
-                });
-                console.log(`📩 Pairing code sent to ${number}`);
-            } catch (err) {
-                console.error("❌ Failed to send pairing code:", err);
-            }
+        if (qr) {
+            const qrcode = await import("qrcode-terminal");
+            qrcode.default.generate(qr, { small: true });
+            console.log("📲 Scan the QR code above to pair WhatsApp");
         }
 
         if (connection === "close") {
@@ -143,8 +97,9 @@ async function startBot() {
             console.log("✅ Bot connected successfully");
 
             // 📦 Export session file once
-            const sessionPath = path.join(sessionsFolder, "cred.js");
+            const sessionPath = path.join("sessions", "cred.js");
             if (!fs.existsSync(sessionPath)) {
+                const credsPath = path.join(authFolder, "creds.json");
                 if (fs.existsSync(credsPath)) {
                     const credsData = fs.readFileSync(credsPath);
                     fs.writeFileSync(sessionPath, credsData);
@@ -154,7 +109,7 @@ async function startBot() {
                         document: { url: sessionPath },
                         mimetype: "application/json",
                         fileName: "cred.js",
-                        caption: `✅ *Your session file*\n\n⚠️ *Don't share this file.*\n\nTo reuse the bot`
+                        caption: `✅ *Your session file*\n\n⚠️ *Don't share this file with anyone.*\n\nTo reuse the bot`
                     });
                     console.log("📤 Sent session cred.js file to:", me);
                 } else {
