@@ -74,7 +74,7 @@ node index.js
 
 #### Prerequisites
 - Fork the repo
-- Create an account on [https://render.com](https://render.com)
+- Create an account on [https://replit.com](https://replit.com)
 
 #### Steps
 1. Click **"New Web Service"** in Render dashboard
@@ -144,3 +144,4 @@ The menu shows all commands grouped in categories with stylish formatting and an
 
 * Inspired by KnightBot, EliteProBot, and OpenAI integrations.
 * Developed with ❤️ by \[Ngoulla Morel].
+
